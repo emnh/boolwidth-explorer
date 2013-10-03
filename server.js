@@ -1,16 +1,19 @@
-var WebSocketServer = require('ws').Server
+/*
+ * var WebSocketServer = require('ws').Server
   , http = require('http')
   , express = require('express')
   , app = express()
   , port = process.env.PORT || 5000;
+  */
 
-app.use(express.static(__dirname + '/'));
+app.use(express.static(__dirname + '/static'));
 
 var server = http.createServer(app);
 server.listen(port);
 
 console.log('http server listening on %d', port);
 
+/*
 var wss = new WebSocketServer({server: server});
 console.log('websocket server created');
 wss.on('connection', function(ws) {
@@ -25,3 +28,4 @@ wss.on('connection', function(ws) {
         clearInterval(id);
     });
 });
+*/
