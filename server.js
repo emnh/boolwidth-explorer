@@ -6,7 +6,7 @@
   , port = process.env.PORT || 5000;
   */
 
-app.use(express.static(__dirname + '/static'));
+app.use('/', express.static(__dirname + '/static'));
 
 var server = http.createServer(app);
 server.listen(port);
