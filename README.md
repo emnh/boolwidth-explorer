@@ -34,7 +34,13 @@ A project to explore boolean width using a graphical user interface.
  - enumerate using github API
    - https://api.github.com/repos/emnh/boolwidth/git/refs for sha
    - https://api.github.com/repos/emnh/boolwidth/git/trees/f4778315107f4b69ec9866233dedfbe97604ea68 for tree and so on
+
 - store graphs and output in neo4j
   - load/import standard graph from github in tree view
   - neo4j makes it easy to query and have multiple decompositions on same graph
   - makes it easy to query graphs and decompositions using cypher
+
+- dump boolwidth java algorithm runs to json and create d3 visualization with time slider or port/compile to JavaScript and use choc
+  - cutbool with choc will be simplest
+  - full heuristic will require more work to port, better json it as first step
+  - rewrite algorithm or modularize Java code with an AJAX interface to control/step run from JS
