@@ -1,4 +1,3 @@
-
 A project to explore boolean width using a graphical user interface.
 
 <div id="todo">
@@ -26,7 +25,7 @@ A project to explore boolean width using a graphical user interface.
 - bugfix drag n drop in tree
   - replace with simple tree like
     - http://www.jstree.com/documentation/dnd#
-    - http://wwwendt.de/tech/dynatree/doc/samples.html
+    - https://github.com/mar10/fancytree
     - http://mbraak.github.io/jqTree/
   - lazy tree with async computation of cutbool
 
