@@ -5,7 +5,6 @@ A project to explore boolean width using a graphical user interface.
         <li>TODO</li>
         <ul>
         <li>clean separation of graph/tree data objects with change notifications</li>
-        <li>visualize cutbool algorithm</li>
         <li>tag or display max cutbool for tree</li>
         <li>drag to rearrange tree</li>
             <ul>
@@ -21,6 +20,12 @@ A project to explore boolean width using a graphical user interface.
         </ul>
     </ul>
 </div>
+
+- visualize cutbool algorithm
+  - Make debugger to step over Data, not over Code. Data centric view and control at least.
+  - JS Parser in JS: htps://github.com/ariya/esprima
+  - JS debugger in JS: https://github.com/int3/metajs, http://int3.github.io/metajs/#
+  - JS Interactive learning tool, Choc: https://github.com/fullstackio/choc
 
 - bugfix drag n drop in tree
   - replace with simple tree like
