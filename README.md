@@ -26,6 +26,7 @@ A project to explore boolean width using a graphical user interface.
   - JS Parser in JS: htps://github.com/ariya/esprima
   - JS debugger in JS: https://github.com/int3/metajs, http://int3.github.io/metajs/#
   - JS Interactive learning tool, Choc: https://github.com/fullstackio/choc
+  - Inspiration from JS webgl tracer, but it's not free: https://trace.gl/
 
 - bugfix drag n drop in tree
   - replace with simple tree like
