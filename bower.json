@@ -1,5 +1,5 @@
 {
-  "name": "test",
+  "name": "boolwidth-explorer",
   "version": "1.0.0",
   "ignore": [
     ".jshintrc",
@@ -9,6 +9,7 @@
     "jquery": "latest",
     "underscore": "latest",
     "fancytree": "latest",
-    "mori": "latest"
+    "mori": "latest",
+    "raphael": "latest"
   }
 }

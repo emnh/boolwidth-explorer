@@ -21,6 +21,7 @@
 
 # row and column count of bipartite graph
 G = 8
+#bigRat = rational
 EDGE_PROB = bigRat(1, G)
 ROWCT = G
 COLCT = G
@@ -419,7 +420,7 @@ unionsfast = (mat) ->
         mori.nth(mori.nth(hoods, i), coli)), rowindexes)
   hoods_by_col_value = mori.map(group_by_column_value, [0..COLCT-1])
   #mori.each(hoods_by_01, (x) -> console.log("a", x))
-  console.log("h01", "" + hoods_by_col_value)
+  #console.log("h01", "" + hoods_by_col_value)
   #H.show(mat2table(hoods))
   
   getDegrees = (mat) ->
@@ -428,7 +429,7 @@ unionsfast = (mat) ->
     vector(mori.reduce(addrow, mat))
   
   colsums = getDegrees(hoods)
-  console.log("" + colsums)
+  #console.log("" + colsums)
   
   rec_hoods({
         depth: 0,
@@ -585,10 +586,9 @@ drawGraph = (left, right, holder) ->
   
   return
   
-doSetup = () ->
-  [rows, cols] = [ROWCT, COLCT]
-  rm = eval('bigraph.' + MAT_TYPE)(rows, cols)
-  
+doSetup = (rowct, colct, create_mat) ->
+  [rows, cols] = [rowct, colct]
+  rm = create_mat(rows, cols)
   rest = bigraph.getDegrees(rm)
   rest = rest.reduce((x, y) -> (1 + 1/y)*x)
   #console.log(rest)
@@ -604,8 +604,8 @@ doSetup = () ->
 
   holder = $('<div id="holder"/>')
   holder.appendTo("#result")
-  leftnodes = [1..ROWCT]
-  rightnodes = [1..COLCT]
+  leftnodes = [1..rowct]
+  rightnodes = [1..colct]
   drawGraph(leftnodes, rightnodes, holder)
   
   rm
@@ -672,10 +672,9 @@ doFastUnions = (rm) ->
 
 investigateHoodCounts = () ->
   cts = []
-  for G in [1..16]
-    ROWCT = G
-    COLCT = G
-    rm = doSetup()
+  for g in [1..16]
+    rowct = colct = g
+    rm = doSetup(rowct, colct, MAT_TYPE)
     h = doUnions(rm)
     cts.push(mori.count(h))
   console.log(cts)
@@ -715,26 +714,52 @@ htmlInputs = (doCompute) ->
   inputs
 
 doCompute = (inputs) ->
-  COLCT = inputs.getcolumns()
-  ROWCT = inputs.getrows()
+  colct = inputs.getcolumns()
+  rowct = inputs.getrows()
   EDGE_PROB = bigRat(inputs.getedgeprob())
-  MAT_TYPE = inputs.getmat_type()
+  mat_type = inputs.getmat_type()
 
   console.clear()
   
   r = $("#compute_results")
   r.empty()
-  rm = doSetup()
+  create_mat = eval('bigraph.' + mat_type)
+  rm = doSetup(rowct, colct, create_mat)
   g = bigraph.mat2list(rm)
-  console.log("graph rows", "" + g.rows)
-  console.log("graph cols", "" + g.cols)
   h = doUnions(rm)
   if mori.count(h) < 5000
     doFastUnions(rm)
   else
     title = H.h1("Backtrack Unions (skipped for large graph >5000 hoods until optimized)")
     H.section(title, H.div(""))
-  r.collapse({})
+  #r.collapse({})
       
 inputs = htmlInputs(doCompute)
 doCompute(inputs)
+
+enumRelation = () ->
+  sets = []
+  mat = []
+  for edge_prob in [0.5]
+    for i in [1..16]
+      mat[i] = []
+      for j in [1..16]
+        do (i, j, edge_prob) ->
+          set =
+            colct: i
+            rowct: j
+            edge_prob: edge_prob
+            mat_type: 'rndunitymat'
+          rowct = set.rowct
+          colct = set.colct
+          EDGE_PROB = bigRat(set.edge_prob)
+          mat_type = eval('bigraph.' + set.mat_type)
+          rm = doSetup(rowct, colct, mat_type)
+          g = bigraph.mat2list(rm)
+          h = doUnions(rm)
+          count = mori.count(h)
+          mat[i][j] = [count]
+  content = H.table(H.tr(H.td(x) for x in row) for row in mat)
+  H.section("Summary", content)
+
+enumRelation()
