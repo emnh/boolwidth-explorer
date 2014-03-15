@@ -740,10 +740,14 @@ doCompute(inputs)
 enumRelation = () ->
   sets = []
   mat = []
-  for edge_prob in [0.5]
-    for i in [1..16]
+  minrowct = 1
+  mincolct = 1
+  maxrowct = 16
+  maxcolct = 16
+  for edge_prob in [0.1]
+    for i in [mincolct..maxcolct]
       mat[i] = []
-      for j in [1..16]
+      for j in [minrowct..maxrowct]
         do (i, j, edge_prob) ->
           set =
             colct: i
@@ -759,7 +763,10 @@ enumRelation = () ->
           h = doUnions(rm)
           count = mori.count(h)
           mat[i][j] = [count]
-  content = H.table(H.tr(H.td(x) for x in row) for row in mat)
-  H.section("Summary", content)
+  headerrow = [H.tr([H.th(" ")].concat(H.th(i) for i in [mincolct..maxcolct]))]
+  rows = (H.tr([H.th(i)].concat(H.td(mat[i][j]) for j in [mincolct..maxcolct])) for i in [minrowct..maxrowct])
+  content = H.table(headerrow.concat(rows))
+  content.addClass("nums")
+  H.section(H.h1("Summary"), content)
 
 enumRelation()

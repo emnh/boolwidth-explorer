@@ -1,0 +1,15 @@
+div {
+  padding: 5px;
+}
+
+.ufalgovis {
+  height: 600px;
+  display: table-row;
+}
+.ufalgovis > * {
+  display: table-cell;
+}
+
+table.nums td {
+    border: 1px solid black;
+}
