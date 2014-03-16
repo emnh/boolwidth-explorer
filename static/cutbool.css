@@ -25,3 +25,39 @@ table.nums td {
 .good {
   background: green;
 }
+ 
+ul.searchtre {
+    border: 1px solid black;
+    font-size: 8pt;
+}
+.searchtre li {
+    border: 1px solid black;
+}
+.searchtre li:first-child {
+  border-top: 0px;
+}
+
+.searchtre li {
+  border-top: 1px solid black;
+  border-left: 1px solid black;
+  list-style-type: none;
+}
+
+.searchtree dl {
+ border: 1px solid black;
+}
+.searchtree dt {
+ border: 1px solid black;
+ width:45%; /* adjust the width; make sure the total of both is 100% */
+ background: lightblue;
+ display: table-cell;
+ padding: 5px;
+}
+.searchtree dd {
+ border: 1px solid black;
+ width:50%; /* adjust the width; make sure the total of both is 100% */
+ background: lightgreen;
+ display: table-cell;
+ padding: 5px;
+}
+

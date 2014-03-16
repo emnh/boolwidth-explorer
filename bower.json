@@ -10,6 +10,9 @@
     "underscore": "latest",
     "fancytree": "latest",
     "mori": "latest",
-    "raphael": "latest"
+    "raphael": "latest",
+    "d3": "latest",
+    "nvd3": "latest",
+    "jstree": "latest"
   }
 }

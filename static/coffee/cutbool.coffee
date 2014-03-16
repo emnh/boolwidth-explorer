@@ -1,5 +1,12 @@
 `// noprotect`
 # vim: st=2 sts=2 sw=2
+#
+#
+# TODO: connected components for sampler
+# TODO: graph accuracy vs sample count
+# TODO: show backtrack tree
+# TODO: show sample tree
+# TODO: integrate with main dc
 
 # General resources
 # Ace 9 Editor: http://ace.c9.io/build/kitchen-sink.html for search/replace
@@ -8,19 +15,21 @@
 
 # ==== Approximation Resources
 #
+# http://www.cse.unsw.edu.au/~tw/comic-2006-004.pdf
+#
 # Current approximation with SampleSearch / Weighted Backtrack Estimate
+# [Estimating Search Tree Size](http://www.cs.ubc.ca/~hutter/EARG.shtml/earg/stack/WS06-11-005.pdf)
+# [Predicting the Size of Depth-First Branch and Bound Search Trees]( http://ijcai.org/papers13/Papers/IJCAI13-095.pdf)
 # [Approximate Counting by Sampling the Backtrack-free Search Space]( http://www.ics.uci.edu/~csp/r142.pdf)
 # [Studies in Solution Sampling](http://www.hlt.utdallas.edu/~vgogate/papers/aaai08.pdf)
 # [Approximate Solution Sampling (and Counting) on AND/OR search space](http://www.ics.uci.edu/~csp/r161a.pdf)
-# [Estimating Search Tree Size](http://www.cs.ubc.ca/~hutter/EARG.shtml/earg/stack/WS06-11-005.pdf)
-# [Predicting the Size of Depth-First Branch and Bound Search Trees]( http://ijcai.org/papers13/Papers/IJCAI13-095.pdf)
 # [Adapting the Weighted Backtrack Estimator to Conflict Driven Search](http://www.inf.ucv.cl/~bcrawford/2009_1%20Papers%20Tesis/0805.pdf)
 #
 
 # probability of edge in bipartite graph
 
 # row and column count of bipartite graph
-G = 8
+G = 12
 #bigRat = rational
 EDGE_PROB = bigRat(1, G)
 ROWCT = G
@@ -34,7 +43,8 @@ MAT_TYPES =
   'unityskewmat',
   'unityskewmat_k(5)']
 MAT_TYPE = MAT_TYPES[2]
-SAMPLE_COUNT = 20
+SAMPLE_COUNT = 100
+INNER_SAMPLE_COUNT = 1
 
 # unity skew mat 2 hood counts 1..16
 u2 = [2, 2, 5, 10, 17, 29, 51, 90, 158, 277, 486, 853, 1497, 2627, 4610, 8090]
@@ -134,9 +144,9 @@ bigraph.getDegrees = (mat) ->
 
 makeH = () ->
   html = {}
-  tags = 
-    ["script", "div", "span", "p", "ul", "li", "a",
-    "table", "th", "tr", "td", "colgroup", "col", "thead", "tbody", 
+  tags =
+    ["script", "div", "span", "p", "ol", "ul", "li", "a", "dl", "dt", "dd",
+    "table", "th", "tr", "td", "colgroup", "col", "thead", "tbody",
     "h1", "h2", "h3", "h4", "h5",
     "label", "input", "button"]
   makeTagDef = (tag) ->
@@ -213,325 +223,6 @@ unions = (mat) ->
   (addHoods(row, (addHood(hood, row) for hood in hoodar)) for row in mat)
   [hoodar, udata]
 
-ishood = (mat, hood) ->
-  is_subset = (a, b) ->
-    if mori.count(a) != mori.count(b)
-      throw "length mismatch: a: #{a} b: #{b}"
-    mori.every(mori.identity, mori.map(((x, y) -> x <= y), a, b))
-  checkrow = (row) -> is_subset(row, hood)
-  subsets = mori.filter(checkrow, mat)
-  subsets_union = mori.reduce(binUnion, subsets)
-  f1 = mori.into(mori.vector(), hood)
-  f2 = mori.into(mori.vector(), subsets_union)
-  t = mori.equals(f1, f2)
-  t
-
-isPartialHood = (mat, hood) ->
-  is_subset = (a, b) ->
-    if mori.count(a) != mori.count(b)
-      throw "length mismatch: a: #{a} b: #{b}"
-    f = mori.map(((x, y) -> x <= y or x == "?" or y == "?"), a, b)
-    mori.every(mori.identity, f)
-  checkrow = (row) -> is_subset(row, hood)
-  subsets = mori.filter(checkrow, mat)
-  subsets_union = mori.reduce(binUnion, subsets)
-  t = mori.map(((x, y) ->
-               x == y or x == "?" or y == "?"), hood, subsets_union)
-  t = mori.every(mori.identity, t)
-  t
-
-getFixed = (mat) ->
-  # 0,1 or "?"
-  bincmp = (x, y) -> if x == y then x else "?"
-  rowcmp = (a, b) -> mori.into_array(mori.map(bincmp, a, b))
-  mori.reduce(rowcmp, mori.into_array(mat))
-  
-unionsfast = (mat) ->
-  ufdata = H.div("")
-  ulog = (fn) -> 
-    fn().appendTo(ufdata)
-  # debug off
-  # ulog = (fn) -> 0
-  fhoods = []
-  root = []
-  node_bykey = []
-  keyindex = 0
-  pqsum = 0
-  
-  vector = (x) -> mori.into(mori.vector(), x)
-  
-  # working at 2710
-  
-  rec_hoods = (state) ->
-    {depth, children, fixed, hoods, ct, keyindex, pqprob} = state
-    #if not state.depth? console.log("helooo")
-
-    keyindex = 0 # XXX: correct?
-
-    #console.log("fixed: #{fixed}, ct: #{ct}")
-    # ulog(() -> H.div("fixed: #{fixed}, ct: #{ct}"))
-    # ulog(() -> H.div(mat2table(mori.into_array(hoods))))
-    #console.log("state", state)
-    #console.log("children", children)
-    node =
-      title: "#{fixed}"
-      key: keyindex
-      children: []
-      hoods: hoods
-      childcount: 0
-      depth: depth
-      avgdepth: 0
-      prob: pqprob
-            
-    node_bykey[keyindex] = node
-    children.push(node)
-    keyindex += 1
-    newstate =
-      depth: depth + 1 # recursion depth
-      children: node.children # tree representing algorithm for postprocessing
-      fixed: fixed # pattern specifying neighborhoods to enumerate in subtree
-      fixedhasone: state.fixedhasone
-      rowindices: state.rowindices # indices of rows eligible to participate in neighborhoods of subtree
-      # degree of node / count of 1s per column over eligible rows
-      colsums: state.colsums
-      hoods: hoods # eligible hoods, to be replaced
-      ct: ct
-    applyfixed = () ->
-      bycol = (coli, sym) ->
-        rowidxbyval = mori.get(hoods_by_col_value, coli)
-        valid =
-          switch sym
-            when '?'
-              mori.cat(rowidxbyval[0], rowidxbyval[1])
-            when 0
-              rowidxbyval[0]
-            when 1
-              rowidxbyval[1]
-
-    if ct >= 0
-      childcalls = []
-      if mori.get(fixed, ct) != "?"
-        # position already fixed by necessary neighborhood, skip to next
-        childcalls.push({ct: ct - 1})
-      else
-        # fix position to 0, i.e. remove a vertex/column on one side,
-        # and remove rows with 1 in this column on other side
-        isZero = (hood) -> mori.get(hood, ct) == 0
-        remaining_hoods = vector(mori.filter(isZero, hoods))
-        #console.log(remaining_hoods)
-        
-        # TODO: rename ct to colindex or something
-        # 
-        rowcount = mori.count(hoods)
-        # number of remaining rows with 0 in this column
-        remct = rowcount - mori.get(colsums, ct)
-        #mori.assoc(colsums, ct, 0)
-        #indexof1rows = mori.get(hoods_by_col_value, ct)
-        #mori.map((x) -> x - , colsums)
-        #mori.update_in(colsums, 
-        
-        # remct = mori.count(remaining_hoods)
-        # TODO: replace partialHood
-        # if row which is removed by setting 0 in this position,
-        # has a 1 in a 1-fixed position,
-        # then we need to check for each 1 that there is another row with 1 in this position.
-        # could keep counters on each col that says how many alternatives are left
-        if remct > 0 and isPartialHood(remaining_hoods, fixed)
-          if remct == 1
-            # one hood remaining, so all is fixed
-            #console.log("remaining_hoods", remaining_hoods)
-            newfixed = vector(mori.first(remaining_hoods))
-            #console.log("newfixed #{newfixed}")
-            childcalls.push({
-                             fixed: newfixed,
-                             hoods: remaining_hoods,
-                             ct: -1})
-          else
-            # if ishood(fixed, remaining_hoods)
-            childcalls.push({
-                             fixed: mori.assoc(fixed, ct, 0),
-                             hoods: remaining_hoods,
-                             ct: ct - 1})
-        
-        # fix position to 1
-        # must be at least one neighborhood
-        # which contains this node, i.e. has 1
-        # in this position
-        # console.log("g ct #{mori.get(globs, ct)} #{ct}")
-        if mori.get(colsums, ct) >= 1
-          # TODO: eliminate already included sets, including null set
-          
-          #isOne = (hood) -> mori.get(hood, ct) == 1
-          #onehoods = mori.filter(isOne, hoods)
-          
-          # isect = 
-          # TODO: must fix ones
-          #onehoods_isect = mori.reduce(isect, onehoods)
-          #if mori.count(onehoods) > 0
-          if not state.fixedhasone
-            hoods = mori.remove(((x) -> mori.equals(x, nullset)), hoods)
-          childcalls.push({
-                           fixed: mori.assoc(fixed, ct, 1),
-                           hoods: hoods,
-                           fixedhasone: true,
-                           ct: ct - 1})
-      
-      prob = 1 / childcalls.length
-      for childcall in childcalls
-        rec_hoods(util.getmergedicts(newstate, childcall, { pqprob: pqprob * prob } ))
-
-      sumchildren = (x, y) -> x + y.childcount
-      #sumdepth = (x, y) -> (x + y.depth) / 2
-      #node.avgdepth = node.children.reduce(sumdepth)
-      node.avgdepth = 
-        switch mori.count(node.children)
-          when 1 then node.children[0].avgdepth
-          when 2 then (node.children[0].avgdepth + node.children[1].avgdepth) / 2
-      node.childcount = node.children.reduce(sumchildren, 0)
-    else # leaf
-      fixed = mori.into_array(fixed)
-      #if not ishood(hoods, fixed) then console.log("BUG")
-      #ish = ishood(hoods, fixed)
-      # ulog(() -> H.p("end: #{fixed} ishood #{ish}"))
-      fhoods.push(fixed)
-      node.childcount = 1
-      pqsum += (1 / (pqprob*pqprob))
-      #node.avgdepth = mori.count(hoods) / fixed.reduce((x, y) -> x + y))
-  #fixed = ('?' for x in [1..mat.cols])
-  fixed = getFixed(mat)
-  fixed = mori.into(mori.vector(), fixed)
-  nullset = vector(0 for x in [1..mat.cols])
-  
-  hoods = mori.sorted_set()
-  hoods = mori.into(hoods, mori.map(vector, mat))
-  hoods = mori.conj(hoods, nullset)
-  hoodcount = mori.count(hoods)
-  
-  #for x in mori.into_array(hoods)
-  #  do () ->
-  #    console.log("x", "" + x, x[0])
-      
-  rowindexes = [0..(hoodcount-1)]
-  #withidx = mori.map(((rowi, h) -> [rowi, h]), rowindexes, hoods)
-  hoods = vector(hoods)
-  group_by_column_value =
-    (coli) ->
-      mori.group_by(((i) ->
-        mori.nth(mori.nth(hoods, i), coli)), rowindexes)
-  hoods_by_col_value = mori.map(group_by_column_value, [0..COLCT-1])
-  #mori.each(hoods_by_01, (x) -> console.log("a", x))
-  #console.log("h01", "" + hoods_by_col_value)
-  #H.show(mat2table(hoods))
-  
-  getDegrees = (mat) ->
-    addcol = (x, y) -> x + y
-    addrow = (a, b) -> mori.map(addcol, a, b)
-    vector(mori.reduce(addrow, mat))
-  
-  colsums = getDegrees(hoods)
-  #console.log("" + colsums)
-  
-  rec_hoods({
-        depth: 0,
-        children: root,
-        fixed: fixed,
-        fixedhasone: false,
-        rowindices: rowindexes,
-        colsums: colsums,
-        hoods: hoods,
-        ct: mat.cols - 1,
-        pqprob: 1
-        })
-  #fhoods.push(nullset)
-  
-  getsample = (node) ->
-    prob = switch mori.count(node.children)
-      when 0
-        node.prob
-      when 1
-        getsample(node.children[0])
-      when 2
-        rand = Math.floor(Math.random()*2)
-        getsample(node.children[rand])
-    return prob
-        
-  N = SAMPLE_COUNT
-  samples = (1 / getsample(root[0]) for k in [1..N])
-  estimate = samples.reduce((x, y) -> x + y) / N
-  
-  # TODO: estimate: let the selection order be free
-  # TODO: separate approximation algorithm from enumeration
-  # TODO: estimate idea, train neural network with count based on vertex degrees
-  
-  #console.log(samples)
-  #console.log("E:", estimate)
-  #console.log("pqsum:", pqsum)
-  
-  #getsamplesampleidx = (norm_samples) ->
-  #  rand = Math.random()
-  #  sum = 0
-  #  for sample, i in samples
-  #    sum += sample
-  #    if sum > rand
-  #      return i
-
-  # sample the samples to get from backtrack-free to uniform distribution
-  #sum_samples = samples.reduce((x, y) -> x + y)
-  #norm_samples = (s / sum_samples for s in samples)
-  #M = N / 2
-  #sample_samples = (samples[getsamplesampleidx(norm_samples)] for k in [1..M])
-  #estimate_sir = sample_samples.reduce((x, y) -> x + y) / M
-  #console.log(norm_samples)
-  #console.log(sample_samples)
-  #console.log("E-sir:", estimate_sir)
-  
-  root.bykey = node_bykey
-  {
-   hoods: fhoods,
-   tree: root,
-   log: ufdata,
-   est: estimate
-  }
-
-buildtree = (jsontree, nodeinfo) ->
-  colgroups = [H.col("", {width: "*"}) for i in [1..5]]
-  colgroups[0] = H.col("", {width: "*"})
-  table =
-    H.table([
-      H.colgroup(colgroups),
-      H.thead(H.tr(H.th(x) for x in ["Fixed", "Count", "Prob", "Depth", "Key"])),
-      H.tbody(H.tr(H.td(i) for i in [1..5]))
-      ], { class: "uftable" } )
-  
-  
-  $.ui.fancytree.debugLevel = 1 # silence debug output
-  table.fancytree
-    extensions: ["table"]
-    table:
-      indentation: 20 # indent 20px per node level
-      nodeColumnIdx: 0 # render the node title into the 2nd column
-    renderColumns: (e, data) ->
-      node = data.node
-      $tdList = $(node.tr).find(">td")
-      # (index #0 is rendered by fancytree by adding the checkbox)
-      #$tdList.eq(1).text(node.getIndexHier()).addClass "alignRight"
-      
-      $tdList.eq(1).text jsontree.bykey[node.key].childcount
-      $tdList.eq(2).text "1/" + 1/jsontree.bykey[node.key].prob
-      $tdList.eq(3).text Math.pow(2, jsontree.bykey[node.key].avgdepth)
-      $tdList.eq(4).text node.key
-      #$tdList.eq(3).text jsontree.bykey[node.key].avgdepth
-      #$tdList.eq(3).text node.key
-    filter:
-      mode: "hide"
-    source:
-      jsontree
-    focus: (e, data) ->
-      node = data.node
-      rnode = jsontree.bykey[node.key]
-      nodeinfo.html(H.mat2table(mori.into_array(mori.map(mori.into_array, rnode.hoods))))
-  table
-
 drawGraph = (left, right, holder) ->
   nodes = {}
   
@@ -571,7 +262,7 @@ drawGraph = (left, right, holder) ->
     pos
   (nodesByName[name].pos = drawcol(0, i) for name, i of left)
   (nodesByName[name].pos = drawcol(1, i) for name, i of right)
-  console.log("node", n) for n in nodesByName
+  #console.log("node", n) for n in nodesByName
   
   drawEdge = (left, right) ->
     s.push raph.path("M#{left.x},#{left.y}c0,0,0,0,#{right.x-left.x},#{right.y-left.y}").attr
@@ -633,42 +324,134 @@ doUnions = (rm) ->
   H.section(H.h1(title), content...)
   hoods
 
+getChartData = (samples, samples2, exact) ->
+  values = []
+  sum = 0
+  for s, i in samples
+    sum += s.estimate
+    x = i + 1
+    ret =
+      x: x
+      y: (sum / x) / exact
+    values.push(ret)
+
+  values2 = []
+  sum = 0
+  for s, i in samples2
+    sum += s
+    x = i + 1
+    ret =
+      x: x
+      y: (sum / x) / exact
+    values2.push(ret)
+
+  data = [
+    {
+      key: 'STree Estimate'
+      values: values
+    },
+    {
+      key: 'QPos Estimate'
+      values: values2
+    },
+    {
+      key: 'Exact'
+      #values: {x: i + 1, y: exact} for _,i in samples
+      values: {x: i + 1, y: 1} for _,i in samples
+    }
+  ]
+  data
+
+doChart = (svgid, data) ->
+  
+  nv.addGraph ->
+    chart = nv.models.lineChart()
+    #chart.xAxis.xRange 0 exact * 2
+    #chart.lines.forceY [0, exact * 2]
+    chart.lines.forceY [0, 2]
+    chart.xAxis.tickFormat d3.format(",f")
+    chart.yAxis.tickFormat d3.format(",.2f")
+    #console.log("samples", data)
+    d3.select(svgid).datum(data).call(chart)
+    nv.utils.windowResize chart.update
+    chart
+
 doFastUnions = (rm) ->
   timer = new Timer()
   
-  ufret = timer.timeit(() -> unionsfast(rm))
-  
-  getTreePlaceHolder = () ->
-    showtree = () ->
-      nodeinfo = H.div("nodeinfo")
-      uitree = buildtree(ufret.tree, nodeinfo)
-      $("#ufalgovis").empty()
-      $("#ufalgovis").append(uitree)
-      $("#ufalgovis").append(nodeinfo)
-      uitree.fancytree("getRootNode").visit((node) -> node.setExpanded(true))
-    treelink = H.a("Click to show search tree", {'href': '#ufalgovis'}).click(showtree)
-    H.div(treelink, { id: "ufalgovis", class: "ufalgovis" })
-  
-  title = H.h1("Backtrack Neighborhoods (t=#{timer.elapsed}ms, count=#{mori.count(ufret.hoods)})")
+  samplect = inputs.getsamplecount()
+  state =
+    mat: rm
+  timer = new Timer()
+  sampler = new Sampler(state)
+  timer.timeit(() -> sampler.iterate([]))
+  iter_elapsed = timer.elapsed
+
+  title = H.h1("Backtrack Neighborhoods (t=#{iter_elapsed}ms, count=#{sampler.getHoodCount()})")
   content =
     [
-      H.p("Backtrack algorithm elapsed time: #{timer.elapsed} ms")
-      H.p("Time per neighborhood: #{timer.elapsed / mori.count(ufret.hoods)} ms")
+      H.p("Backtrack algorithm elapsed time: #{iter_elapsed} ms")
+      H.p("Time per neighborhood: #{iter_elapsed / sampler.getHoodCount()} ms")
       H.h2("Algorithm Search Tree")
-      getTreePlaceHolder()
-      H.div("Backtrack hood count: #{ufret.hoods.length}")
+      H.div("Backtrack hood count: #{sampler.getHoodCount()}")
     ]
   H.section(title, content...)
   
-  #console.log(x) for x in ufret.hoods.slice(0, 5)
   f = (h) -> H.ul(H.li(x) for x in h)
   title = H.h1("Backtrack Unions Neighborhoods")
-  content = getHoodPlaceHolder(ufret.hoods, f, "fasthoodsplacement")
+  content = getHoodPlaceHolder(sampler.hoods, f, "fasthoodsplacement")
   H.section(title, content...)
+
+  # Samples
+  results = timer.timeit(() -> sampler.getEstimate(samplect))
+  estimate = results.estimate
+  sample_elapsed = timer.elapsed
+  acc = Math.round(estimate / sampler.getHoodCount() * 100) / 100
+  sampleinfo = "t=#{sample_elapsed}ms, N=#{samplect}, count=#{estimate}, acc=#{acc})"
+  title = H.h1("STree Estimate (#{sampleinfo})")
+
+  #console.log(results)
+  tree = results.results[0].searchtree.root
+
+  proc = (tree) ->
+    if tree.leaf? and tree.leaf == true
+      dl = ([H.dt("#{k}"), H.dd("#{v}")] for k,v of tree.state).reduce((a, b) -> a.concat(b))
+      H.li(H.dl(dl))
+      #H.li(H.span(tree.state.sample))
+    else if tree.children?
+       pre = [
+                if tree.state?
+                  "#{tree.state.sample}, est: #{tree.state.estimate}, d: #{tree.state.depth}"
+                else
+                  ""]
+       H.li([pre, H.ul((proc(c) for c in tree.children))])
+  htree = proc(tree.children[0])
+  htree = H.div(H.ul(htree), {class: 'searchtree'})
+  #console.log(htree)
+
+  chart = $("<div id='chart0'><svg style='height: 500px; width: 800px;'/></div>")
+  H.section(title, htree, chart) # H.div("Search Tree"), ol)
+  $().ready () ->
+   $(".searchtree").jstree()
   
-  acc = Math.round(ufret.est / mori.count(ufret.hoods) * 100) / 100
-  title = H.h1("Weighted Backtrack Estimate (N=#{SAMPLE_COUNT}, count=#{ufret.est}, acc=#{acc})")
-  H.section(title, H.div("nothing yet"))
+  #$().ready(() -> doChart(results.results, sampler.getHoodCount()))
+  chartid = '#' + chart.attr("id") + ' svg'
+
+  sampler2 = new Sampler(state)
+  results2 = timer.timeit(() -> sampler2.getQPosEstimate(samplect))
+  estimate = results2.estimate
+
+  #$().ready(() -> doChart(results.results, sampler.getHoodCount()))
+
+  sample_elapsed = timer.elapsed
+  acc = Math.round(estimate / sampler.getHoodCount() * 100) / 100
+  sampleinfo = "t=#{sample_elapsed}ms, N=#{samplect}, count=#{estimate}, acc=#{acc}"
+  title = H.h1("STree QPos Estimate (#{sampleinfo})")
+  H.section(title, "")
+
+  data = getChartData(results.results, results2.results, sampler.getHoodCount())
+  console.log(data)
+  doChart(chartid, data)
 
 investigateHoodCounts = () ->
   cts = []
@@ -677,9 +460,9 @@ investigateHoodCounts = () ->
     rm = doSetup(rowct, colct, MAT_TYPE)
     h = doUnions(rm)
     cts.push(mori.count(h))
-  console.log(cts)
+  #console.log(cts)
   ratios = (Math.floor(cts[i + 1] * 1000 / cts[i]) / 1000 for _, i in cts)
-  console.log(ratios)
+  #console.log(ratios)
   return cts
 
 #cts = investigateHoodCounts()
@@ -718,7 +501,7 @@ doCompute = (inputs) ->
   colct = inputs.getcolumns()
   rowct = inputs.getrows()
   EDGE_PROB = bigRat(inputs.getedgeprob())
-  SAMPLE_COUNT = inputs.getsamplecount()
+  samplect = inputs.getsamplecount()
   mat_type = inputs.getmat_type()
 
   console.clear()
@@ -729,22 +512,58 @@ doCompute = (inputs) ->
   rm = doSetup(rowct, colct, create_mat)
   g = bigraph.mat2list(rm)
   h = doUnions(rm)
-  if mori.count(h) < 5000
-    doFastUnions(rm)
-  else
-    title = H.h1("Backtrack Unions (skipped for large graph >5000 hoods until optimized)")
-    H.section(title, H.div(""))
-  doSamples(rm)
+  doFastUnions(rm)
   rm
-  #r.collapse({})
-      
+  r.collapse({})
+
+class SearchTree
+  constructor: () ->
+    @root = {}
+    @root.children = []
+    @top = @root
+    @stack = []
+    @stack.push(@top)
+
+  branch: (argstate) ->
+    #console.log("st branch", argstate)
+    node =
+      state: argstate
+      children: []
+    if not @top.children?
+      @top.children = []
+    @top.children.push(node)
+    @top = node
+    @stack.push(@top)
+
+  pop: (argstate) ->
+    #console.log("st pop", argstate)
+    @top = @stack.pop()
+    argstate
+
+  solution: (argstate) ->
+    #console.log("st solution", argstate)
+    @top.leaf = true
+    @top.state = argstate
+    @top.solution = true
+
+  return: (argstate) ->
+    #console.log("st return", argstate)
+    argstate
+   
 class Sampler
+
+  # TODO: estimate: let the selection order be free
+  # TODO: estimate idea, train neural network with count based on vertex degrees
+
   constructor: (@state) ->
     @mat = @state.mat
     @hoods = []
 
+  getHoodCount: () ->
+    @hoods.length
+
   isSubset: (pat) ->
-    (row for row in @mat when pat.every((e, i) -> row[i] <= e))
+    (row for row in @mat when pat.every((e, i) -> e == '?' or row[i] <= e))
   
   isSubsetSum: (rows, pat) ->
     atLeastOneOneInRows = (e, i) ->
@@ -754,22 +573,21 @@ class Sampler
         true
     pat.every(atLeastOneOneInRows)
 
-  whichRowsAddUp: (pat) ->
+  isPartialHood: (pat) ->
     rows = @isSubset(pat)
     @isSubsetSum(rows, pat)
 
   iterate: (sample) ->
     if sample.length >= @mat[0].length
-      console.log(sample)
+      #console.log(sample)
       @hoods.push([sample, prob])
       return prob
     else
-      zeroct = @whichRowsAddUp(sample.concat([0]))
-      onect = @whichRowsAddUp(sample.concat([1]))
+      zeroct = @isPartialHood(sample.concat([0]))
+      onect = @isPartialHood(sample.concat([1]))
       #console.log(sample, onect, zeroct)
       prob = switch (onect + zeroct)
         when 0
-          console.log("0 options")
           @hoods.push([sample, prob])
           prob
         when 1
@@ -780,49 +598,143 @@ class Sampler
           prob = @iterate(sample.concat([1]))
       return prob
 
-  
-  getsample: (sample, prob) ->
-    if sample.length >= @mat[0].length
+  getQPosSample: (sample, prob) ->
+    qpos = (i for x,i in sample when x == '?')
+    qcount = qpos.length
+    if qcount == 0 # @mat[0].length
       return prob
     else
-      zeroct = @whichRowsAddUp(sample.concat([0]))
-      onect = @whichRowsAddUp(sample.concat([1]))
-      #console.log(sample, onect, zeroct)
-      prob = switch (onect + zeroct)
+      # select nth question mark as new position
+      newposrand = Math.floor(Math.random() * qcount)
+      newposition = qpos[newposrand]
+      getnext = (val) ->
+        newsample = ((if i == newposition   then val else x) for x,i in sample)
+        newsample
+      vals =
+        for val in [0, 1]
+          ispartial = @isPartialHood(getnext(val))
+          ispartial
+      prob = switch (vals[0] + vals[1])
         when 0
           prob
         when 1
-          nextval = if onect > 0 then 1 else 0
-          prob = @getsample(sample.concat([nextval]), prob)
+          nextval = if vals[1] > 0 then 1 else 0
+          prob = @getQPosSample(getnext(nextval), prob)
         when 2
           rand = Math.floor(Math.random()*2)
-          #if sample + rand in samples then rand = (if rand == 1 then 0 else 1)
-          # here, go other side if more samples needed
-          prob = @getsample(sample.concat([rand]), prob*0.5)
+          prob = @getQPosSample(getnext(rand), prob*0.5)
       return prob
 
-doSamples = (rm) ->
-  samplect = SAMPLE_COUNT
-  state =
-    mat: rm
-  sampler = new Sampler(state)
-  timer = new Timer()
-  timer.timeit(() -> sampler.iterate([]))
-  elapsed = timer.elapsed
-  console.log("elapsed: #{elapsed}ms, hood count: ", sampler.hoods.length)
-  samples = (1 / sampler.getsample([], 1) for i in [1..samplect])
-  estimate = samples.reduce((x, y) -> x + y) / samplect
-  console.log(estimate, samples)
+
+  getSamples: (in_sample, in_prob, samplect=INNER_SAMPLE_COUNT) ->
+    stack = []
+    samples = []
+    st = new SearchTree()
+    branch = (argstate) ->
+      st.branch(argstate)
+      stack.push(argstate)
+    solution = (argstate) ->
+      st.solution(argstate)
+      samples.push
+        sample: argstate.sample
+        estimate: argstate.estimate
+      samplect--
+      samplect <= 0
+
+    branch
+      sample: in_sample
+      prob: in_prob
+      estimate: 1
+      depth: 0
+
+    done = false
+    ct = 0
+    branchct = 0
+    maxdepth = Math.ceil(Math.log(samplect) / Math.log(2))
+    while stack.length > 0 and not done
+      state = st.pop(stack.pop())
+      ct++
+      zeroct = @isPartialHood(state.sample.concat([0]))
+      onect = @isPartialHood(state.sample.concat([1]))
+      if state.sample.length >= @mat[0].length
+        done = solution(state)
+      else
+        switch (onect + zeroct)
+          when 0
+            # shouldn't happen, because sample length would exceed row length in earlier check
+            done = solution(state)
+          when 1
+            nextval = if onect > 0 then 1 else 0
+            branch
+              sample: state.sample.concat([nextval])
+              prob: state.prob
+              estimate: state.estimate
+              depth: state.depth + 1
+              parent: state
+          when 2
+            rand = Math.floor(Math.random()*2)
+            newprob = state.prob * 0.5
+            if state.depth < maxdepth
+              estimate = state.estimate
+            else
+              estimate = state.estimate * 2 # assumes same type
+            branch
+              sample: state.sample.concat([rand])
+              prob: newprob
+              estimate: estimate
+              depth: state.depth + 1
+              parent: state
+            if state.depth < maxdepth
+              opposite = rand ^ 1
+              branch
+                sample: state.sample.concat([opposite])
+                prob: newprob
+                estimate: estimate
+                depth: state.depth + 1
+                parent: state
+              branchct++
+      st.return(state)
+    #console.log("iterations", ct)
+    #samples.sort()
+    #(console.log(s.sample.length + " " +  s.sample.join("") + " " + s.estimate) for s in samples)
+    ret =
+      searchtree: st
+      samples: samples
+      estimate: sum(x.estimate for x in samples)
+
+  average = (samples) ->
+    samples.reduce((x, y) -> x + y) / samples.length
+
+  sum = (samples) ->
+    samples.reduce((x, y) -> x + y)
+
+  getAbstractEstimate: (samplect, getSampleM) ->
+    samples = (getSampleM() for i in [1..samplect])
+    average(samples)
+
+  getEstimate: (samplect) ->
+    results = (@getSamples([], 1) for i in [1..samplect])
+    ret =
+      estimate: average(r.estimate for r in results)
+      results: results
   
-enumRelation = () ->
+  getQPosEstimate: (samplect) ->
+    initsample = ('?' for x in [1..@mat[0].length])
+    samples = (1 / @getQPosSample(initsample, 1) for i in [1..samplect])
+    ret =
+      estimate: average(samples) # r.estimate for r in results)
+      results: samples
+
+samplerStats = () ->
   sets = []
   mat = []
   minrowct = 1
   mincolct = 1
   maxrowct = 16
   maxcolct = 16
+  samplect = 20 #inputs.getsamplecount()
   timer = new Timer()
-  for edge_prob in [0.1]
+  for edge_prob in [0.5]
     for i in [mincolct..maxcolct]
       mat[i] = []
       for j in [minrowct..maxrowct]
@@ -834,20 +746,26 @@ enumRelation = () ->
             mat_type: 'rndunitymat'
           rowct = set.rowct
           colct = set.colct
-          SAMPLE_COUNT = (maxrowct + maxcolct) / 2
+          samplect = (maxrowct + maxcolct)
           EDGE_PROB = bigRat(set.edge_prob)
           mat_type = eval('bigraph.' + set.mat_type)
           rm = doSetup(rowct, colct, mat_type)
           g = bigraph.mat2list(rm)
-          h = doUnions(rm)
+          h = timer.timeit(() -> doUnions(rm))
+          elapsed_hoods = timer.elapsed
           count = mori.count(h)
-          ufret = timer.timeit(() -> unionsfast(rm))
-          estimate = Math.round(ufret.est)
-          acc = Math.round(ufret.est / count * 100)
+          sampler = new Sampler(mat: rm)
+          estimate = timer.timeit () -> Math.round(sampler.getQPosEstimate(samplect))
+          elapsed_samples = timer.elapsed
+          acc = Math.round(estimate / count * 100)
+          timeratio = Math.round(elapsed_samples / elapsed_hoods * 100)
           mat[i][j] =
             count: count
             estimate: estimate
             accuracy: acc
+            elapsed_hoods: elapsed_hoods
+            elapsed_samples: elapsed_samples
+            timeratio: timeratio
 
   fmt_a = (i,j) ->
     H.td("#{mat[i][j].count}|#{mat[i][j].estimate}")
@@ -861,6 +779,9 @@ enumRelation = () ->
       else
         "good"
     ret = H.td("#{mat[i][j].accuracy}%", { class: cls })
+  fmt_c = (i, j) ->
+    #H.td("#{mat[i][j].elapsed_hoods}|#{mat[i][j].elapsed_samples}")
+    H.td("#{mat[i][j].timeratio}")
   
   mktable = (title, fmt) ->
     headerrow = [H.tr([H.th(" ")].concat(H.th(i) for i in [mincolct..maxcolct]))]
@@ -870,8 +791,9 @@ enumRelation = () ->
     H.section(H.h1(title), content)
   mktable("Summary Count|Estimate", fmt_a)
   mktable("Summary Accuracy", fmt_b)
+  mktable("Summary Time", fmt_c)
 
 inputs = htmlInputs(doCompute)
 doCompute(inputs)
-#enumRelation()
+#samplerStats()
 
