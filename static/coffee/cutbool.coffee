@@ -416,7 +416,7 @@ unionsfast = (mat) ->
   hoods = vector(hoods)
   group_by_column_value =
     (coli) ->
-      mori.group_by(((i) -> 
+      mori.group_by(((i) ->
         mori.nth(mori.nth(hoods, i), coli)), rowindexes)
   hoods_by_col_value = mori.map(group_by_column_value, [0..COLCT-1])
   #mori.each(hoods_by_01, (x) -> console.log("a", x))
@@ -496,7 +496,7 @@ unionsfast = (mat) ->
 buildtree = (jsontree, nodeinfo) ->
   colgroups = [H.col("", {width: "*"}) for i in [1..5]]
   colgroups[0] = H.col("", {width: "*"})
-  table = 
+  table =
     H.table([
       H.colgroup(colgroups),
       H.thead(H.tr(H.th(x) for x in ["Fixed", "Count", "Prob", "Depth", "Key"])),
@@ -697,7 +697,8 @@ htmlInputs = (doCompute) ->
     textin("Columns", "columns", COLCT),
     textin("Rows", "rows", ROWCT),
     textin("Edge probability", "edgeprob", EDGE_PROB.toString()),
-    textin("Adjacency Matrix Type (TODO: combo)", "mat_type", MAT_TYPE.toString())
+    textin("Adjacency Matrix Type (TODO: combo)", "mat_type", MAT_TYPE.toString()),
+    textin("Sample Count", "samplecount", SAMPLE_COUNT)
     ]
   inputs.boxes = H.table(H.tr([H.td(label), H.td(input)]) for [label, input] in inputs.boxes)
   inputs.compute = button("Compute").click(() -> doCompute(inputs))
@@ -717,6 +718,7 @@ doCompute = (inputs) ->
   colct = inputs.getcolumns()
   rowct = inputs.getrows()
   EDGE_PROB = bigRat(inputs.getedgeprob())
+  SAMPLE_COUNT = inputs.getsamplecount()
   mat_type = inputs.getmat_type()
 
   console.clear()
@@ -732,11 +734,86 @@ doCompute = (inputs) ->
   else
     title = H.h1("Backtrack Unions (skipped for large graph >5000 hoods until optimized)")
     H.section(title, H.div(""))
+  doSamples(rm)
+  rm
   #r.collapse({})
       
-inputs = htmlInputs(doCompute)
-doCompute(inputs)
+class Sampler
+  constructor: (@state) ->
+    @mat = @state.mat
+    @hoods = []
 
+  isSubset: (pat) ->
+    (row for row in @mat when pat.every((e, i) -> row[i] <= e))
+  
+  isSubsetSum: (rows, pat) ->
+    atLeastOneOneInRows = (e, i) ->
+      if e == 1
+        rows.some((row) -> row[i] == 1)
+      else
+        true
+    pat.every(atLeastOneOneInRows)
+
+  whichRowsAddUp: (pat) ->
+    rows = @isSubset(pat)
+    @isSubsetSum(rows, pat)
+
+  iterate: (sample) ->
+    if sample.length >= @mat[0].length
+      console.log(sample)
+      @hoods.push([sample, prob])
+      return prob
+    else
+      zeroct = @whichRowsAddUp(sample.concat([0]))
+      onect = @whichRowsAddUp(sample.concat([1]))
+      #console.log(sample, onect, zeroct)
+      prob = switch (onect + zeroct)
+        when 0
+          console.log("0 options")
+          @hoods.push([sample, prob])
+          prob
+        when 1
+          nextval = if onect > 0 then 1 else 0
+          prob = @iterate(sample.concat([nextval]))
+        when 2
+          prob = @iterate(sample.concat([0]))
+          prob = @iterate(sample.concat([1]))
+      return prob
+
+  
+  getsample: (sample, prob) ->
+    if sample.length >= @mat[0].length
+      return prob
+    else
+      zeroct = @whichRowsAddUp(sample.concat([0]))
+      onect = @whichRowsAddUp(sample.concat([1]))
+      #console.log(sample, onect, zeroct)
+      prob = switch (onect + zeroct)
+        when 0
+          prob
+        when 1
+          nextval = if onect > 0 then 1 else 0
+          prob = @getsample(sample.concat([nextval]), prob)
+        when 2
+          rand = Math.floor(Math.random()*2)
+          #if sample + rand in samples then rand = (if rand == 1 then 0 else 1)
+          # here, go other side if more samples needed
+          prob = @getsample(sample.concat([rand]), prob*0.5)
+      return prob
+
+doSamples = (rm) ->
+  samplect = SAMPLE_COUNT
+  state =
+    mat: rm
+  sampler = new Sampler(state)
+  timer = new Timer()
+  timer.timeit(() -> sampler.iterate([]))
+  elapsed = timer.elapsed
+  console.log("elapsed: #{elapsed}ms, hood count: ", sampler.hoods.length)
+  samples = (1 / sampler.getsample([], 1) for i in [1..samplect])
+  estimate = samples.reduce((x, y) -> x + y) / samplect
+  console.log(estimate, samples)
+  
 enumRelation = () ->
   sets = []
   mat = []
@@ -744,6 +821,7 @@ enumRelation = () ->
   mincolct = 1
   maxrowct = 16
   maxcolct = 16
+  timer = new Timer()
   for edge_prob in [0.1]
     for i in [mincolct..maxcolct]
       mat[i] = []
@@ -756,17 +834,44 @@ enumRelation = () ->
             mat_type: 'rndunitymat'
           rowct = set.rowct
           colct = set.colct
+          SAMPLE_COUNT = (maxrowct + maxcolct) / 2
           EDGE_PROB = bigRat(set.edge_prob)
           mat_type = eval('bigraph.' + set.mat_type)
           rm = doSetup(rowct, colct, mat_type)
           g = bigraph.mat2list(rm)
           h = doUnions(rm)
           count = mori.count(h)
-          mat[i][j] = [count]
-  headerrow = [H.tr([H.th(" ")].concat(H.th(i) for i in [mincolct..maxcolct]))]
-  rows = (H.tr([H.th(i)].concat(H.td(mat[i][j]) for j in [mincolct..maxcolct])) for i in [minrowct..maxrowct])
-  content = H.table(headerrow.concat(rows))
-  content.addClass("nums")
-  H.section(H.h1("Summary"), content)
+          ufret = timer.timeit(() -> unionsfast(rm))
+          estimate = Math.round(ufret.est)
+          acc = Math.round(ufret.est / count * 100)
+          mat[i][j] =
+            count: count
+            estimate: estimate
+            accuracy: acc
 
-enumRelation()
+  fmt_a = (i,j) ->
+    H.td("#{mat[i][j].count}|#{mat[i][j].estimate}")
+  fmt_b = (i,j) ->
+    acc = mat[i][j].accuracy / 100
+    cls =
+      if acc > 2 or acc < 1/2
+        "poor"
+      else if acc > 3/2 or acc < 2/3
+        "medium"
+      else
+        "good"
+    ret = H.td("#{mat[i][j].accuracy}%", { class: cls })
+  
+  mktable = (title, fmt) ->
+    headerrow = [H.tr([H.th(" ")].concat(H.th(i) for i in [mincolct..maxcolct]))]
+    rows = (H.tr([H.th(i)].concat(fmt(i, j) for j in [mincolct..maxcolct])) for i in [minrowct..maxrowct])
+    content = H.table(headerrow.concat(rows))
+    content.addClass("nums")
+    H.section(H.h1(title), content)
+  mktable("Summary Count|Estimate", fmt_a)
+  mktable("Summary Accuracy", fmt_b)
+
+inputs = htmlInputs(doCompute)
+doCompute(inputs)
+#enumRelation()
+

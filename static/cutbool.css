@@ -13,3 +13,15 @@ div {
 table.nums td {
     border: 1px solid black;
 }
+
+.poor {
+  background: red;
+}
+
+.medium {
+  background: yellow;
+}
+
+.good {
+  background: green;
+}
