@@ -3,9 +3,7 @@
 #
 #
 # TODO: connected components for sampler
-# TODO: graph accuracy vs sample count
 # TODO: show backtrack tree
-# TODO: show sample tree
 # TODO: integrate with main dc
 
 # General resources
@@ -43,7 +41,8 @@ MAT_TYPES =
   'unityskewmat',
   'unityskewmat_k(5)']
 MAT_TYPE = MAT_TYPES[2]
-SAMPLE_COUNT = 100
+#SAMPLE_TIME = 1000
+SAMPLE_COUNT = 20
 INNER_SAMPLE_COUNT = 1
 
 # unity skew mat 2 hood counts 1..16
@@ -61,11 +60,14 @@ toType = (obj) ->
 
 class Timer
   timeit: (fn) ->
-    before = new Date().getTime()
+    before = (new Date()).getTime()
     ret = fn()
-    after = new Date().getTime()
+    after = (new Date()).getTime()
     @elapsed = after - before
     ret
+
+  time: () ->
+    (new Date).getTime()
 
 util = {}
 
@@ -184,7 +186,7 @@ H.u2list = (mat) ->
       [a,b] = row.from
       r.push(" [ from: [#{a}] [#{b}] ]")
     r
-  H.ul(H.li(trow(row)) for row in mat)  
+  H.ul(H.li(trow(row)) for row in mat)
 
 binUnion = (a,b) ->
   if mori.count(a) != mori.count(b)
@@ -324,43 +326,50 @@ doUnions = (rm) ->
   H.section(H.h1(title), content...)
   hoods
 
-getChartData = (samples, samples2, exact) ->
+sampleValues = (samples, exact) ->
   values = []
   sum = 0
   for s, i in samples
-    sum += s.estimate
-    x = i + 1
-    ret =
-      x: x
-      y: (sum / x) / exact
-    values.push(ret)
-
-  values2 = []
-  sum = 0
-  for s, i in samples2
     sum += s
     x = i + 1
     ret =
       x: x
       y: (sum / x) / exact
-    values2.push(ret)
+    values.push(ret)
+  values
 
+getChartData = (samples, samples2, exact) ->
   data = [
     {
       key: 'STree Estimate'
-      values: values
+      values: values = sampleValues(samples, exact)
     },
     {
       key: 'QPos Estimate'
-      values: values2
+      values: values2 = sampleValues(samples2, exact)
     },
     {
       key: 'Exact'
-      #values: {x: i + 1, y: exact} for _,i in samples
       values: {x: i + 1, y: 1} for _,i in samples
     }
   ]
   data
+
+doMiniChart = (svgid, data) ->
+  
+  nv.addGraph ->
+    chart = nv.models.lineChart()
+    #chart.xAxis.xRange 0 exact * 2
+    #chart.lines.forceY [0, exact * 2]
+    chart.showLegend(false)
+    chart.margin({top:0, bottom:0, right:0, left:0})
+    chart.lines.forceY [0, 2]
+    chart.xAxis.tickFormat d3.format(",f")
+    chart.yAxis.tickFormat d3.format(",.2f")
+    #console.log("samples", data)
+    d3.select(svgid).datum(data).call(chart)
+    nv.utils.windowResize chart.update
+    chart
 
 doChart = (svgid, data) ->
   
@@ -375,6 +384,19 @@ doChart = (svgid, data) ->
     d3.select(svgid).datum(data).call(chart)
     nv.utils.windowResize chart.update
     chart
+
+searchTreeToHTML = (tree) ->
+  if tree.leaf? and tree.leaf == true
+    dl = ([H.dt("#{k}"), H.dd("#{v}")] for k,v of tree.state).reduce((a, b) -> a.concat(b))
+    H.li(H.dl(dl))
+    #H.li(H.span(tree.state.sample))
+  else if tree.children?
+     pre = [
+              if tree.state?
+                "#{tree.state.sample}, est: #{tree.state.estimate}, d: #{tree.state.depth}"
+              else
+                ""]
+     H.li([pre, H.ul((searchTreeToHTML(c) for c in tree.children))])
 
 doFastUnions = (rm) ->
   timer = new Timer()
@@ -402,56 +424,44 @@ doFastUnions = (rm) ->
   content = getHoodPlaceHolder(sampler.hoods, f, "fasthoodsplacement")
   H.section(title, content...)
 
-  # Samples
+  # Run first sampler
   results = timer.timeit(() -> sampler.getEstimate(samplect))
   estimate = results.estimate
   sample_elapsed = timer.elapsed
   acc = Math.round(estimate / sampler.getHoodCount() * 100) / 100
+
+  # Sampler Search Tree
+  tree = results.results[0].searchtree.root
+  htree = searchTreeToHTML(tree.children[0])
+  htree = H.div(H.ul(htree), {class: 'searchtree'})
+
+  # Output first sampler
   sampleinfo = "t=#{sample_elapsed}ms, N=#{samplect}, count=#{estimate}, acc=#{acc})"
   title = H.h1("STree Estimate (#{sampleinfo})")
-
-  #console.log(results)
-  tree = results.results[0].searchtree.root
-
-  proc = (tree) ->
-    if tree.leaf? and tree.leaf == true
-      dl = ([H.dt("#{k}"), H.dd("#{v}")] for k,v of tree.state).reduce((a, b) -> a.concat(b))
-      H.li(H.dl(dl))
-      #H.li(H.span(tree.state.sample))
-    else if tree.children?
-       pre = [
-                if tree.state?
-                  "#{tree.state.sample}, est: #{tree.state.estimate}, d: #{tree.state.depth}"
-                else
-                  ""]
-       H.li([pre, H.ul((proc(c) for c in tree.children))])
-  htree = proc(tree.children[0])
-  htree = H.div(H.ul(htree), {class: 'searchtree'})
-  #console.log(htree)
-
-  chart = $("<div id='chart0'><svg style='height: 500px; width: 800px;'/></div>")
   H.section(title, htree, chart) # H.div("Search Tree"), ol)
   $().ready () ->
    $(".searchtree").jstree()
-  
-  #$().ready(() -> doChart(results.results, sampler.getHoodCount()))
-  chartid = '#' + chart.attr("id") + ' svg'
 
+  # Run second sampler
   sampler2 = new Sampler(state)
   results2 = timer.timeit(() -> sampler2.getQPosEstimate(samplect))
   estimate = results2.estimate
 
-  #$().ready(() -> doChart(results.results, sampler.getHoodCount()))
-
+  # Output second sampler, TODO: tree
   sample_elapsed = timer.elapsed
   acc = Math.round(estimate / sampler.getHoodCount() * 100) / 100
   sampleinfo = "t=#{sample_elapsed}ms, N=#{samplect}, count=#{estimate}, acc=#{acc}"
   title = H.h1("STree QPos Estimate (#{sampleinfo})")
   H.section(title, "")
 
-  data = getChartData(results.results, results2.results, sampler.getHoodCount())
-  console.log(data)
-  doChart(chartid, data)
+  # Chart
+  chart = $("<div id='chart0'><svg style='height: 500px; width: 800px;'/></div>")
+  H.section(H.h1("STree Chart"), chart)
+  chartid = '#' + chart.attr("id") + ' svg'
+  samples = (s.estimate for s in results.results)
+  samples2 = results2.results
+  data = getChartData(samples, samples2, sampler.getHoodCount())
+  $().ready(() -> doChart(chartid, data))
 
 investigateHoodCounts = () ->
   cts = []
@@ -578,7 +588,7 @@ class Sampler
     @isSubsetSum(rows, pat)
 
   iterate: (sample) ->
-    if sample.length >= @mat[0].length
+    if sample.length >= @mat.cols
       #console.log(sample)
       @hoods.push([sample, prob])
       return prob
@@ -624,7 +634,6 @@ class Sampler
           rand = Math.floor(Math.random()*2)
           prob = @getQPosSample(getnext(rand), prob*0.5)
       return prob
-
 
   getSamples: (in_sample, in_prob, samplect=INNER_SAMPLE_COUNT) ->
     stack = []
@@ -728,11 +737,11 @@ class Sampler
 samplerStats = () ->
   sets = []
   mat = []
-  minrowct = 1
-  mincolct = 1
+  minrowct = 8
+  mincolct = 8
   maxrowct = 16
   maxcolct = 16
-  samplect = 20 #inputs.getsamplecount()
+  samplect = 30 #inputs.getsamplecount()
   timer = new Timer()
   for edge_prob in [0.5]
     for i in [mincolct..maxcolct]
@@ -746,16 +755,20 @@ samplerStats = () ->
             mat_type: 'rndunitymat'
           rowct = set.rowct
           colct = set.colct
-          samplect = (maxrowct + maxcolct)
+          #samplect = (maxrowct + maxcolct)
           EDGE_PROB = bigRat(set.edge_prob)
-          mat_type = eval('bigraph.' + set.mat_type)
-          rm = doSetup(rowct, colct, mat_type)
-          g = bigraph.mat2list(rm)
-          h = timer.timeit(() -> doUnions(rm))
+          rm = eval('bigraph.' + set.mat_type)
+          rm = rm(rowct, colct)
+          #rm = doSetup(rowct, colct, mat_type)
+          #
+          sampler = new Sampler({mat: rm})
+
+          timer.timeit(() -> sampler.iterate([]))
           elapsed_hoods = timer.elapsed
-          count = mori.count(h)
-          sampler = new Sampler(mat: rm)
-          estimate = timer.timeit () -> Math.round(sampler.getQPosEstimate(samplect))
+          count = sampler.hoods.length
+
+          results = timer.timeit () -> sampler.getQPosEstimate(samplect)
+          estimate = Math.round(results.estimate)
           elapsed_samples = timer.elapsed
           acc = Math.round(estimate / count * 100)
           timeratio = Math.round(elapsed_samples / elapsed_hoods * 100)
@@ -766,7 +779,19 @@ samplerStats = () ->
             elapsed_hoods: elapsed_hoods
             elapsed_samples: elapsed_samples
             timeratio: timeratio
+            samples: results.results
 
+  exactdata = [
+    {
+      key: 'Exact',
+      values: {x: i + 1, y: 1} for i in [1..samplect]
+    }
+  ]
+  getdi = (samples, exact, title) ->
+    {
+      key: title,
+      values: sampleValues(samples, exact)
+    }
   fmt_a = (i,j) ->
     H.td("#{mat[i][j].count}|#{mat[i][j].estimate}")
   fmt_b = (i,j) ->
@@ -782,7 +807,23 @@ samplerStats = () ->
   fmt_c = (i, j) ->
     #H.td("#{mat[i][j].elapsed_hoods}|#{mat[i][j].elapsed_samples}")
     H.td("#{mat[i][j].timeratio}")
-  
+  fmt_d = (i, j) ->
+    acc = mat[i][j].accuracy / 100
+    cls =
+      if acc > 2 or acc < 1/2
+        "poor"
+      else if acc > 3/2 or acc < 2/3
+        "medium"
+      else
+        "good"
+
+    chart = $("<div id='summary_chart#{i}x#{j}'><svg style='height: 50px; width: 50px;'/></div>")
+    chartid = '#' + chart.attr("id") + ' svg'
+    dv = [getdi(mat[i][j].samples, mat[i][j].count, "#{i}x#{j}")]
+    data = exactdata.concat(dv)
+    chart.ready(() -> doMiniChart(chartid, data))
+    H.td(chart, {class: "#{cls} chartcell" })
+
   mktable = (title, fmt) ->
     headerrow = [H.tr([H.th(" ")].concat(H.th(i) for i in [mincolct..maxcolct]))]
     rows = (H.tr([H.th(i)].concat(fmt(i, j) for j in [mincolct..maxcolct])) for i in [minrowct..maxrowct])
@@ -792,8 +833,21 @@ samplerStats = () ->
   mktable("Summary Count|Estimate", fmt_a)
   mktable("Summary Accuracy", fmt_b)
   mktable("Summary Time", fmt_c)
+  mktable("Summary Charts", fmt_d)
+
+  chart = $("<div id='summary_chart0'><svg style='height: 500px; width: 800px;'/></div>")
+  chartid = '#' + chart.attr("id") + ' svg'
+  H.section(H.h1("Summary BigChart"), chart)
+  dv =
+    for i in [minrowct..maxrowct]
+      for j in [mincolct..maxcolct]
+        do (i, j) ->
+          getdi(mat[i][j].samples, mat[i][j].count, "#{i}x#{j}")
+  dv = dv.reduce((a,b) -> a.concat(b))
+  data = exactdata.concat(dv)
+  doChart(chartid, data)
 
 inputs = htmlInputs(doCompute)
 doCompute(inputs)
-#samplerStats()
+samplerStats()
 
