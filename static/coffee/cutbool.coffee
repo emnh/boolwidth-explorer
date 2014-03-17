@@ -167,8 +167,15 @@ H.show = (h...) ->
   i.appendTo('#compute_results') for i in h
 
 H.section = (title, h...) ->
-  H.show(title)
-  H.show(H.div(h))
+  contentdiv = (H.div(h, {'class': 'content'}))
+  atitle = H.a(title, {href: '#', 'class': 'title'})
+  title.click () ->
+    $(".section .content").css("visibility", "hidden")
+    $(".title h1").css("font-size", "small")
+    contentdiv.css("visibility", "visible")
+    title.css("font-size", "large")
+  H.show(H.div([atitle, contentdiv], { 'class': 'section' }))
+  title.click()
 
 H.u2table = (mat) ->
   trow = (row) ->
@@ -326,6 +333,22 @@ doUnions = (rm) ->
   H.section(H.h1(title), content...)
   hoods
 
+doMiniChart = (svgid, data) ->
+  
+  nv.addGraph ->
+    chart = nv.models.lineChart()
+    #chart.xAxis.xRange 0 exact * 2
+    #chart.lines.forceY [0, exact * 2]
+    chart.showLegend(false)
+    chart.margin({top:0, bottom:0, right:0, left:0})
+    chart.lines.forceY [0, 2]
+    chart.xAxis.tickFormat d3.format(",f")
+    chart.yAxis.tickFormat d3.format(",.2f")
+    #console.log("samples", data)
+    d3.select(svgid).datum(data).call(chart)
+    nv.utils.windowResize chart.update
+    chart
+
 sampleValues = (samples, exact) ->
   values = []
   sum = 0
@@ -354,22 +377,6 @@ getChartData = (samples, samples2, exact) ->
     }
   ]
   data
-
-doMiniChart = (svgid, data) ->
-  
-  nv.addGraph ->
-    chart = nv.models.lineChart()
-    #chart.xAxis.xRange 0 exact * 2
-    #chart.lines.forceY [0, exact * 2]
-    chart.showLegend(false)
-    chart.margin({top:0, bottom:0, right:0, left:0})
-    chart.lines.forceY [0, 2]
-    chart.xAxis.tickFormat d3.format(",f")
-    chart.yAxis.tickFormat d3.format(",.2f")
-    #console.log("samples", data)
-    d3.select(svgid).datum(data).call(chart)
-    nv.utils.windowResize chart.update
-    chart
 
 doChart = (svgid, data) ->
   
@@ -524,7 +531,7 @@ doCompute = (inputs) ->
   h = doUnions(rm)
   doFastUnions(rm)
   rm
-  r.collapse({})
+  #r.collapse({})
 
 class SearchTree
   constructor: () ->
@@ -726,6 +733,7 @@ class Sampler
     ret =
       estimate: average(r.estimate for r in results)
       results: results
+      samples: r.estimate for r in results
   
   getQPosEstimate: (samplect) ->
     initsample = ('?' for x in [1..@mat[0].length])
@@ -733,6 +741,7 @@ class Sampler
     ret =
       estimate: average(samples) # r.estimate for r in results)
       results: samples
+      samples: samples
 
 samplerStats = () ->
   sets = []
@@ -767,7 +776,7 @@ samplerStats = () ->
           elapsed_hoods = timer.elapsed
           count = sampler.hoods.length
 
-          results = timer.timeit () -> sampler.getQPosEstimate(samplect)
+          results = timer.timeit () -> sampler.getEstimate(samplect)
           estimate = Math.round(results.estimate)
           elapsed_samples = timer.elapsed
           acc = Math.round(estimate / count * 100)
@@ -779,7 +788,7 @@ samplerStats = () ->
             elapsed_hoods: elapsed_hoods
             elapsed_samples: elapsed_samples
             timeratio: timeratio
-            samples: results.results
+            samples: results.samples
 
   exactdata = [
     {
@@ -821,7 +830,8 @@ samplerStats = () ->
     chartid = '#' + chart.attr("id") + ' svg'
     dv = [getdi(mat[i][j].samples, mat[i][j].count, "#{i}x#{j}")]
     data = exactdata.concat(dv)
-    chart.ready(() -> doMiniChart(chartid, data))
+    chart.ready(() ->
+      doMiniChart(chartid, data))
     H.td(chart, {class: "#{cls} chartcell" })
 
   mktable = (title, fmt) ->
@@ -845,9 +855,10 @@ samplerStats = () ->
           getdi(mat[i][j].samples, mat[i][j].count, "#{i}x#{j}")
   dv = dv.reduce((a,b) -> a.concat(b))
   data = exactdata.concat(dv)
-  doChart(chartid, data)
+  $(chart).ready(() -> doChart(chartid, data))
 
 inputs = htmlInputs(doCompute)
 doCompute(inputs)
 samplerStats()
 
+console.log("I think uncaught type-errors from nvd3 can be ignored as long as graphs show up fine")

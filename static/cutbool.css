@@ -1,3 +1,4 @@
+// vim: ss=2 sw=2 sts=2 
 div {
   padding: 5px;
 }
@@ -49,20 +50,30 @@ ul.searchtre {
 }
 
 .searchtree dl {
- border: 1px solid black;
+  border: 1px solid black;
 }
 .searchtree dt {
- border: 1px solid black;
- width:45%; /* adjust the width; make sure the total of both is 100% */
- background: lightblue;
- display: table-cell;
- padding: 5px;
+  border: 1px solid black;
+  width:45%; /* adjust the width; make sure the total of both is 100% */
+  background: lightblue;
+  display: table-cell;
+  padding: 5px;
 }
 .searchtree dd {
- border: 1px solid black;
- width:50%; /* adjust the width; make sure the total of both is 100% */
- background: lightgreen;
- display: table-cell;
- padding: 5px;
+  border: 1px solid black;
+  width:50%; /* adjust the width; make sure the total of both is 100% */
+  background: lightgreen;
+  display: table-cell;
+  padding: 5px;
 }
 
+.title h1 {
+  font-size: small;
+}
+
+.section .content {
+  position: absolute;
+  top: 0px;
+  left: 30em;
+  visibility: hidden;
+}
