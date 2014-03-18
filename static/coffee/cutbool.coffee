@@ -5,6 +5,10 @@
 # TODO: connected components for sampler
 # TODO: show backtrack tree
 # TODO: integrate with main dc
+# TODO: create general sample algorithm that runs on arbitrary search tree,
+# such that the algorithm can be combined from summing over samples of all
+# search trees to running on the graph that is the combination of all search
+# trees
 
 # General resources
 # Ace 9 Editor: http://ace.c9.io/build/kitchen-sink.html for search/replace
@@ -175,7 +179,7 @@ H.section = (title, h...) ->
     contentdiv.css("visibility", "visible")
     title.css("font-size", "large")
   H.show(H.div([atitle, contentdiv], { 'class': 'section' }))
-  title.click()
+  #title.click()
 
 H.u2table = (mat) ->
   trow = (row) ->
@@ -392,62 +396,96 @@ doChart = (svgid, data) ->
     nv.utils.windowResize chart.update
     chart
 
-searchTreeToHTML = (tree) ->
-  if tree.leaf? and tree.leaf == true
-    dl = ([H.dt("#{k}"), H.dd("#{v}")] for k,v of tree.state).reduce((a, b) -> a.concat(b))
-    H.li(H.dl(dl))
-    #H.li(H.span(tree.state.sample))
-  else if tree.children?
-     pre = [
-              if tree.state?
-                "#{tree.state.sample}, est: #{tree.state.estimate}, d: #{tree.state.depth}"
-              else
-                ""]
-     H.li([pre, H.ul((searchTreeToHTML(c) for c in tree.children))])
+class HTMLTree
+  constructor: (opts) ->
+    @opts = opts
+    if @opts.sampler? and @opts.sampler
+      @opts.innerfmt = (tree) ->
+        "est: #{tree.state.estimate}, d: #{tree.state.depth}, #{tree.state.sample}"
+    else
+      @opts.innerfmt = (tree) ->
+        #"#{tree.state}"
+        s = ("#{k}:#{v}" for k,v of tree.state).join(",")
+        if tree.leaf
+          s += " leaf"
+        s
+
+  searchTreeToHTML: (tree) ->
+    if tree.children?
+      pre = [
+               if tree.state?
+                 @opts.innerfmt(tree)
+               else
+                 ""]
+      H.li([pre,H.ul((@searchTreeToHTML(c) for c in tree.children))])
+    else if tree.leaf? and tree.leaf == true
+      dl = ([H.dt("#{k}"), H.dd("#{v}")] for k,v of tree.state).reduce((a, b) -> a.concat(b))
+      H.li(H.dl(dl))
+      #H.li(H.span(tree.state.sample))
 
 doFastUnions = (rm) ->
   timer = new Timer()
-  
-  samplect = inputs.getsamplecount()
   state =
-    mat: rm
+      mat: rm
+  samplect = inputs.getsamplecount()
   timer = new Timer()
   sampler = new Sampler(state)
-  timer.timeit(() -> sampler.iterate([]))
+  itertree = timer.timeit(() -> sampler.iterate())
+  hoods = itertree.getSolutions()
+  hoodcount = hoods.length
+  if hoodcount == 0
+    throw "hood count bug, would cause infinite loop with chart"
   iter_elapsed = timer.elapsed
 
-  title = H.h1("Backtrack Neighborhoods (t=#{iter_elapsed}ms, count=#{sampler.getHoodCount()})")
+  # Iterate Search Tree
+  broot = itertree.root
+  #console.log("tree", itertree.root)
+  htmltree =
+    new HTMLTree
+      sampler: false
+  html_itertree = htmltree.searchTreeToHTML(itertree.root)
+  html_itertree = H.div(H.ul(html_itertree), {class: 'searchtree'})
+
+  title = H.h1("Backtrack Neighborhoods (t=#{iter_elapsed}ms, count=#{hoodcount})")
   content =
     [
       H.p("Backtrack algorithm elapsed time: #{iter_elapsed} ms")
-      H.p("Time per neighborhood: #{iter_elapsed / sampler.getHoodCount()} ms")
+      H.p("Time per neighborhood: #{iter_elapsed / hoodcount} ms")
       H.h2("Algorithm Search Tree")
-      H.div("Backtrack hood count: #{sampler.getHoodCount()}")
+      H.div("Backtrack hood count: #{hoodcount}")
     ]
   H.section(title, content...)
   
   f = (h) -> H.ul(H.li(x) for x in h)
   title = H.h1("Backtrack Unions Neighborhoods")
-  content = getHoodPlaceHolder(sampler.hoods, f, "fasthoodsplacement")
+  content = [
+    getHoodPlaceHolder(hoods, f, "fasthoodsplacement"),
+    html_itertree
+    ]
   H.section(title, content...)
 
   # Run first sampler
   results = timer.timeit(() -> sampler.getEstimate(samplect))
   estimate = results.estimate
   sample_elapsed = timer.elapsed
-  acc = Math.round(estimate / sampler.getHoodCount() * 100) / 100
+  acc = Math.round(estimate / hoodcount * 100) / 100
 
   # Sampler Search Tree
   tree = results.results[0].searchtree.root
-  htree = searchTreeToHTML(tree.children[0])
+  htmltree =
+    new HTMLTree
+      sampler: true
+  htree = htmltree.searchTreeToHTML(tree)
   htree = H.div(H.ul(htree), {class: 'searchtree'})
 
   # Output first sampler
   sampleinfo = "t=#{sample_elapsed}ms, N=#{samplect}, count=#{estimate}, acc=#{acc})"
   title = H.h1("STree Estimate (#{sampleinfo})")
   H.section(title, htree, chart) # H.div("Search Tree"), ol)
-  $().ready () ->
-   $(".searchtree").jstree()
+  htree.ready () ->
+   $(".searchtree")
+     .jstree()
+     .on("loaded", () -> htree "open_all")
 
   # Run second sampler
   sampler2 = new Sampler(state)
@@ -456,7 +494,7 @@ doFastUnions = (rm) ->
 
   # Output second sampler, TODO: tree
   sample_elapsed = timer.elapsed
-  acc = Math.round(estimate / sampler.getHoodCount() * 100) / 100
+  acc = Math.round(estimate / hoodcount * 100) / 100
   sampleinfo = "t=#{sample_elapsed}ms, N=#{samplect}, count=#{estimate}, acc=#{acc}"
   title = H.h1("STree QPos Estimate (#{sampleinfo})")
   H.section(title, "")
@@ -467,7 +505,8 @@ doFastUnions = (rm) ->
   chartid = '#' + chart.attr("id") + ' svg'
   samples = (s.estimate for s in results.results)
   samples2 = results2.results
-  data = getChartData(samples, samples2, sampler.getHoodCount())
+  data = getChartData(samples, samples2, hoodcount)
+  #doChart(chartid, data)
   $().ready(() -> doChart(chartid, data))
 
 investigateHoodCounts = () ->
@@ -535,33 +574,47 @@ doCompute = (inputs) ->
 
 class SearchTree
   constructor: () ->
-    @root = {}
-    @root.children = []
+    @root = null
     @top = @root
     @stack = []
-    @stack.push(@top)
 
   branch: (argstate) ->
     #console.log("st branch", argstate)
     node =
       state: argstate
       children: []
-    if not @top.children?
-      @top.children = []
-    @top.children.push(node)
-    @top = node
-    @stack.push(@top)
+    if @root == null
+      @root = node
+      @top = node
+      @stack.push(@top)
+    else
+      @top.children.push(node)
+      @stack.push(@top)
+      @top = node
 
-  pop: (argstate) ->
-    #console.log("st pop", argstate)
+  pop: () ->
+    #console.log("st pop")
     @top = @stack.pop()
-    argstate
+    @top
 
   solution: (argstate) ->
     #console.log("st solution", argstate)
+    @branch argstate
     @top.leaf = true
-    @top.state = argstate
-    @top.solution = true
+    delete @top.children
+    @pop()
+
+  getSolutions: () ->
+    solutions = []
+    proc = (tree) ->
+      if tree.children? and tree.children.length > 0
+        proc(c) for c in tree.children
+        if tree.leaf
+          throw "node should not be both leaf and parent"
+      else if tree.leaf? and tree.leaf == true
+        solutions.push(tree.state)
+    proc @root
+    solutions
 
   return: (argstate) ->
     #console.log("st return", argstate)
@@ -575,9 +628,6 @@ class Sampler
   constructor: (@state) ->
     @mat = @state.mat
     @hoods = []
-
-  getHoodCount: () ->
-    @hoods.length
 
   isSubset: (pat) ->
     (row for row in @mat when pat.every((e, i) -> e == '?' or row[i] <= e))
@@ -594,26 +644,73 @@ class Sampler
     rows = @isSubset(pat)
     @isSubsetSum(rows, pat)
 
-  iterate: (sample) ->
-    if sample.length >= @mat.cols
-      #console.log(sample)
-      @hoods.push([sample, prob])
-      return prob
-    else
-      zeroct = @isPartialHood(sample.concat([0]))
-      onect = @isPartialHood(sample.concat([1]))
-      #console.log(sample, onect, zeroct)
-      prob = switch (onect + zeroct)
-        when 0
-          @hoods.push([sample, prob])
-          prob
-        when 1
-          nextval = if onect > 0 then 1 else 0
-          prob = @iterate(sample.concat([nextval]))
-        when 2
-          prob = @iterate(sample.concat([0]))
-          prob = @iterate(sample.concat([1]))
-      return prob
+  iterate: () ->
+    st = new SearchTree()
+    solct =  0
+    @itersub = (state) ->
+      st.branch state
+      if state.sample.length >= @mat.cols
+        solct++
+        st.solution
+          sample: state.sample
+      else
+        zeroct = @isPartialHood(state.sample.concat([0]))
+        onect = @isPartialHood(state.sample.concat([1]))
+        switch (onect + zeroct)
+          when 0
+            solct++
+            st.solution
+              sample: state.sample
+          when 1
+            nextval = if onect > 0 then 1 else 0
+            @itersub
+              sample: state.sample.concat([nextval])
+          when 2
+            @itersub
+              sample: state.sample.concat([0])
+            @itersub
+              sample: state.sample.concat([1])
+      st.pop()
+    st.branch
+      sample: []
+    @itersub
+      sample: []
+    st
+
+  getTreeSamples: () ->
+    st = new SearchTree()
+    solct =  0
+    @itersub = (state) ->
+      st.branch state
+      while not done
+        st.pop()
+        if state.sample.length >= @mat.cols
+          solct++
+          st.solution
+            sample: state.sample
+        else
+          zeroct = @isPartialHood(state.sample.concat([0]))
+          onect = @isPartialHood(state.sample.concat([1]))
+          switch (onect + zeroct)
+            when 0
+              solct++
+              st.solution
+                sample: state.sample
+            when 1
+              nextval = if onect > 0 then 1 else 0
+              st.branch
+                sample: state.sample.concat([nextval])
+            when 2
+              st.branch
+                sample: state.sample.concat([0])
+              st.branch
+                sample: state.sample.concat([1])
+      st.pop()
+    st.branch
+      sample: []
+    @itersub
+      sample: []
+    st
 
   getQPosSample: (sample, prob) ->
     qpos = (i for x,i in sample when x == '?')
@@ -668,7 +765,8 @@ class Sampler
     branchct = 0
     maxdepth = Math.ceil(Math.log(samplect) / Math.log(2))
     while stack.length > 0 and not done
-      state = st.pop(stack.pop())
+      st.pop()
+      state = stack.pop()
       ct++
       zeroct = @isPartialHood(state.sample.concat([0]))
       onect = @isPartialHood(state.sample.concat([1]))
@@ -772,9 +870,9 @@ samplerStats = () ->
           #
           sampler = new Sampler({mat: rm})
 
-          timer.timeit(() -> sampler.iterate([]))
+          tree = timer.timeit(() -> sampler.iterate())
           elapsed_hoods = timer.elapsed
-          count = sampler.hoods.length
+          count = tree.getSolutions().length
 
           results = timer.timeit () -> sampler.getEstimate(samplect)
           estimate = Math.round(results.estimate)
@@ -859,6 +957,6 @@ samplerStats = () ->
 
 inputs = htmlInputs(doCompute)
 doCompute(inputs)
-samplerStats()
+#samplerStats()
 
 console.log("I think uncaught type-errors from nvd3 can be ignored as long as graphs show up fine")
