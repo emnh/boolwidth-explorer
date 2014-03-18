@@ -599,9 +599,11 @@ class SearchTree
       parent.children.push(node)
     node
 
-  addLeaf: (argstate, parent=null) ->
+  addLeaf: (argstate, parent) ->
     if @debug
       console.log("st solution", argstate)
+    if parent == undefined # safety hatch
+      throw "parent must not be null for leaves"
     #@pushThenBranch(argstate)
     node = @addChild(argstate, parent)
     node.leaf = true
@@ -619,10 +621,6 @@ class SearchTree
     proc @root
     solutions
 
-  return: (argstate) ->
-    #console.log("st return", argstate)
-    argstate
-   
 class Sampler
 
   # TODO: estimate: let the selection order be free
@@ -651,11 +649,12 @@ class Sampler
     st = new SearchTree()
     solct =  0
     @itersub = (state) ->
-      parent = st.addChild(state,state.tree)
+      parent = st.addChild(state, state.tree)
       if state.sample.length >= @mat.cols
         solct++
         st.addLeaf # solution
-          sample: state.sample
+          sample: state.sample,
+            parent
       else
         zeroct = @isPartialHood(state.sample.concat([0]))
         onect = @isPartialHood(state.sample.concat([1]))
@@ -663,7 +662,8 @@ class Sampler
           when 0
             solct++
             st.addLeaf # solution
-              sample: state.sample
+              sample: state.sample,
+                parent
           when 1
             nextval = if onect > 0 then 1 else 0
             @itersub
@@ -678,7 +678,7 @@ class Sampler
               tree: parent
     state =
       sample: []
-      parent: null
+      tree: null
     st.addChild state
     @itersub state
     st
@@ -710,6 +710,43 @@ class Sampler
           prob = @getQPosSample(getnext(rand), prob*0.5)
       return prob
 
+  getSamplesBranch: (args) ->
+    state = args.state
+    switch (args.childcount)
+      when 0
+        # shouldn't happen, because sample length would exceed row length in earlier check
+        loopvars.done = args.solution(state)
+      when 1
+        nextval = if args.onect > 0 then 1 else 0
+        args.branch
+          sample: state.sample.concat([nextval])
+          prob: state.prob
+          estimate: state.estimate
+          depth: state.depth + 1
+          parentNode: state.node
+      when 2
+        rand = Math.floor(Math.random()*2)
+        newprob = state.prob * 0.5
+        if state.depth < args.loopvars.maxdepth
+          estimate = state.estimate
+        else
+          estimate = state.estimate * 2 # assumes same type
+        args.branch
+          sample: state.sample.concat([rand])
+          prob: newprob
+          estimate: estimate
+          depth: state.depth + 1
+          parentNode: state.node
+        if state.depth < args.loopvars.maxdepth
+          opposite = rand ^ 1
+          args.branch
+            sample: state.sample.concat([opposite])
+            prob: newprob
+            estimate: estimate
+            depth: state.depth + 1
+            parentNode: state.node
+          args.loopvars.branchct++
+
   getSamples: (in_sample, in_prob, samplect=INNER_SAMPLE_COUNT) ->
     stack = []
     samples = []
@@ -718,7 +755,7 @@ class Sampler
       argstate.node = st.addChild(argstate, argstate.parentNode)
       stack.push(argstate)
     solution = (argstate) ->
-      st.addLeaf(argstate)
+      st.addLeaf(argstate, argstate.parentNode)
       samples.push
         sample: argstate.sample
         estimate: argstate.estimate
@@ -731,57 +768,26 @@ class Sampler
       estimate: 1
       depth: 0
       parentNode: null
-
-    done = false
-    ct = 0
-    branchct = 0
-    maxdepth = Math.ceil(Math.log(samplect) / Math.log(2))
-    while stack.length > 0 and not done
+    loopvars =
+      done: false
+      ct: 0
+      branchct: 0
+      maxdepth: Math.ceil(Math.log(samplect) / Math.log(2))
+    while stack.length > 0 and not loopvars.done
       state = stack.pop()
-      ct++
+      loopvars.ct++
       zeroct = @isPartialHood(state.sample.concat([0]))
       onect = @isPartialHood(state.sample.concat([1]))
       if state.sample.length >= @mat[0].length
-        done = solution(state)
+        loopvars.done = solution(state)
       else
-        switch (onect + zeroct)
-          when 0
-            # shouldn't happen, because sample length would exceed row length in earlier check
-            done = solution(state)
-          when 1
-            nextval = if onect > 0 then 1 else 0
-            branch
-              sample: state.sample.concat([nextval])
-              prob: state.prob
-              estimate: state.estimate
-              depth: state.depth + 1
-              parentNode: state.node
-          when 2
-            rand = Math.floor(Math.random()*2)
-            newprob = state.prob * 0.5
-            if state.depth < maxdepth
-              estimate = state.estimate
-            else
-              estimate = state.estimate * 2 # assumes same type
-            branch
-              sample: state.sample.concat([rand])
-              prob: newprob
-              estimate: estimate
-              depth: state.depth + 1
-              parentNode: state.node
-            if state.depth < maxdepth
-              opposite = rand ^ 1
-              branch
-                sample: state.sample.concat([opposite])
-                prob: newprob
-                estimate: estimate
-                depth: state.depth + 1
-                parentNode: state.node
-              branchct++
-      st.return(state)
-    #console.log("iterations", ct)
-    #samples.sort()
-    #(console.log(s.sample.length + " " +  s.sample.join("") + " " + s.estimate) for s in samples)
+        @getSamplesBranch
+          state: state
+          branch: branch
+          childcount: zeroct + onect
+          onect: onect
+          solution: solution
+          loopvars: loopvars
     ret =
       searchtree: st
       samples: samples
