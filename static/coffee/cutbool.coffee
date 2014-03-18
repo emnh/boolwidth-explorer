@@ -412,11 +412,7 @@ class HTMLTree
 
   searchTreeToHTML: (tree) ->
     if tree.children?
-      pre = [
-               if tree.state?
-                 @opts.innerfmt(tree)
-               else
-                 ""]
+      pre = if tree.state? then @opts.innerfmt(tree) else ""
       H.li([pre,H.ul((@searchTreeToHTML(c) for c in tree.children))])
     else if tree.leaf? and tree.leaf == true
       dl = ([H.dt("#{k}"), H.dd("#{v}")] for k,v of tree.state).reduce((a, b) -> a.concat(b))
@@ -432,8 +428,8 @@ doFastUnions = (rm) ->
   sampler = new Sampler(state)
   itertree = timer.timeit(() -> sampler.iterate())
   hoods = itertree.getSolutions()
-  stree = timer.timeit(() -> sampler.getTreeSamples())
-  console.log("stree", stree.getSolutions().length)
+  #stree = timer.timeit(() -> sampler.getTreeSamples())
+  #console.log("stree", stree.getSolutions().length)
   hoodcount = hoods.length
   if hoodcount == 0
     throw "hood count bug, would cause infinite loop with chart"
@@ -588,63 +584,28 @@ class SearchTree
       @debug = state.debug
     else
       @debug = false
-    @root = null
-    @top = @root
-    @stack = []
+    @root = null # root of tree
 
-  pushThenBranch: (argstate) ->
+  addChild: (argstate, parent=null) ->
     if @debug
-     console.log("st pushThenBranch", argstate)
-    # used for depth first search
-    node =
-      state: argstate
-      children: []
-    if @root == null
-      @root = node
-      @top = node
-      @stack.push(@top)
-    else
-      @top.children.push(node)
-      @stack.push(@top)
-      @top = node
-
-  branchThenPush: (argstate) ->
-    if @debug
-      console.log("st branchThenPush", argstate)
+      console.log("st branch", argstate)
     # used for breadth first search
     node =
       state: argstate
       children: []
-    if @root == null
+    if parent == null
       @root = node
-      @top = node
-      @stack.push(@top)
     else
-      if @top != null
-        @top.children.push(node)
-      else if @root != null
-        throw "top is null, why is not root null?"
-      @top = node
-      @stack.push(node)
+      parent.children.push(node)
+    node
 
-  pop: () ->
-    if @debug
-      console.log("st pop")
-    if @isEmpty
-      throw "stack is empty"
-    @top = @stack.pop()
-    @top
-
-  isEmpty: () ->
-    @stack.length == 0
-
-  solution: (argstate) ->
+  addLeaf: (argstate, parent=null) ->
     if @debug
       console.log("st solution", argstate)
-    @pushThenBranch argstate
-    @top.leaf = true
-    delete @top.children
-    @pop()
+    #@pushThenBranch(argstate)
+    node = @addChild(argstate, parent)
+    node.leaf = true
+    delete node.children
 
   getSolutions: () ->
     solutions = []
@@ -690,10 +651,10 @@ class Sampler
     st = new SearchTree()
     solct =  0
     @itersub = (state) ->
-      st.pushThenBranch state
+      parent = st.addChild(state,state.tree)
       if state.sample.length >= @mat.cols
         solct++
-        st.solution
+        st.addLeaf # solution
           sample: state.sample
       else
         zeroct = @isPartialHood(state.sample.concat([0]))
@@ -701,61 +662,25 @@ class Sampler
         switch (onect + zeroct)
           when 0
             solct++
-            st.solution
+            st.addLeaf # solution
               sample: state.sample
           when 1
             nextval = if onect > 0 then 1 else 0
             @itersub
               sample: state.sample.concat([nextval])
+              tree: parent
           when 2
             @itersub
               sample: state.sample.concat([0])
+              tree: parent
             @itersub
               sample: state.sample.concat([1])
-      st.pop()
-    st.pushThenBranch
+              tree: parent
+    state =
       sample: []
-    @itersub
-      sample: []
-    st
-
-  getTreeSamples: () ->
-    st = new SearchTree()
-    solct =  0
-    @itersub2 = (state) ->
-      maxlen = 5000
-      ct = 0
-      console.log("state", state)
-      st.branchThenPush state
-      while not(st.isEmpty())
-        state = st.pop()
-        ct += 1
-        if ct > maxlen
-          console.log("maxlen")
-          break
-        if state.sample.length >= @mat.cols
-          solct++
-          st.solution
-            sample: state.sample
-        else
-          zeroct = @isPartialHood(state.sample.concat([0]))
-          onect = @isPartialHood(state.sample.concat([1]))
-          switch (onect + zeroct)
-            when 0
-              solct++
-              st.solution
-                sample: state.sample
-            when 1
-              nextval = if onect > 0 then 1 else 0
-              st.branchThenPush
-                sample: state.sample.concat([nextval])
-            when 2
-              st.branchThenPush
-                sample: state.sample.concat([0])
-              st.branchThenPush
-                sample: state.sample.concat([1])
-    @itersub2
-      sample: []
+      parent: null
+    st.addChild state
+    @itersub state
     st
 
   getQPosSample: (sample, prob) ->
@@ -790,28 +715,28 @@ class Sampler
     samples = []
     st = new SearchTree()
     branch = (argstate) ->
-      st.pushThenBranch(argstate)
+      argstate.node = st.addChild(argstate, argstate.parentNode)
       stack.push(argstate)
     solution = (argstate) ->
-      st.solution(argstate)
+      st.addLeaf(argstate)
       samples.push
         sample: argstate.sample
         estimate: argstate.estimate
       samplect--
-      samplect <= 0
+      return samplect <= 0
 
     branch
       sample: in_sample
       prob: in_prob
       estimate: 1
       depth: 0
+      parentNode: null
 
     done = false
     ct = 0
     branchct = 0
     maxdepth = Math.ceil(Math.log(samplect) / Math.log(2))
     while stack.length > 0 and not done
-      st.pop()
       state = stack.pop()
       ct++
       zeroct = @isPartialHood(state.sample.concat([0]))
@@ -830,7 +755,7 @@ class Sampler
               prob: state.prob
               estimate: state.estimate
               depth: state.depth + 1
-              parent: state
+              parentNode: state.node
           when 2
             rand = Math.floor(Math.random()*2)
             newprob = state.prob * 0.5
@@ -843,7 +768,7 @@ class Sampler
               prob: newprob
               estimate: estimate
               depth: state.depth + 1
-              parent: state
+              parentNode: state.node
             if state.depth < maxdepth
               opposite = rand ^ 1
               branch
@@ -851,7 +776,7 @@ class Sampler
                 prob: newprob
                 estimate: estimate
                 depth: state.depth + 1
-                parent: state
+                parentNode: state.node
               branchct++
       st.return(state)
     #console.log("iterations", ct)
