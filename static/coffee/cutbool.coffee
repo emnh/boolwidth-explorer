@@ -583,13 +583,18 @@ doCompute = (inputs) ->
   #r.collapse({})
 
 class SearchTree
-  constructor: () ->
+  constructor: (state) ->
+    if state
+      @debug = state.debug
+    else
+      @debug = false
     @root = null
     @top = @root
     @stack = []
 
   pushThenBranch: (argstate) ->
-    console.log("st pushThenBranch", argstate)
+    if @debug
+     console.log("st pushThenBranch", argstate)
     # used for depth first search
     node =
       state: argstate
@@ -604,7 +609,8 @@ class SearchTree
       @top = node
 
   branchThenPush: (argstate) ->
-    console.log("st branchThenPush", argstate)
+    if @debug
+      console.log("st branchThenPush", argstate)
     # used for breadth first search
     node =
       state: argstate
@@ -614,12 +620,18 @@ class SearchTree
       @top = node
       @stack.push(@top)
     else
-      @top.children.push(node)
+      if @top != null
+        @top.children.push(node)
+      else if @root != null
+        throw "top is null, why is not root null?"
       @top = node
       @stack.push(node)
 
   pop: () ->
-    #console.log("st pop")
+    if @debug
+      console.log("st pop")
+    if @isEmpty
+      throw "stack is empty"
     @top = @stack.pop()
     @top
 
@@ -627,7 +639,8 @@ class SearchTree
     @stack.length == 0
 
   solution: (argstate) ->
-    #console.log("st solution", argstate)
+    if @debug
+      console.log("st solution", argstate)
     @pushThenBranch argstate
     @top.leaf = true
     delete @top.children
@@ -709,17 +722,17 @@ class Sampler
   getTreeSamples: () ->
     st = new SearchTree()
     solct =  0
-    @itersub = (state) ->
+    @itersub2 = (state) ->
       maxlen = 5000
       ct = 0
+      console.log("state", state)
       st.branchThenPush state
-      while not st.isEmpty()
-        st.pop()
+      while not(st.isEmpty())
+        state = st.pop()
         ct += 1
         if ct > maxlen
           console.log("maxlen")
           break
-        st.pop()
         if state.sample.length >= @mat.cols
           solct++
           st.solution
@@ -741,7 +754,7 @@ class Sampler
                 sample: state.sample.concat([0])
               st.branchThenPush
                 sample: state.sample.concat([1])
-    @itersub
+    @itersub2
       sample: []
     st
 

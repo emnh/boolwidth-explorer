@@ -5,7 +5,7 @@ var http = require('http')
   , port = process.env.PORT || 5000;
 
 app.use('/', express.static(path.join(__dirname, 'static')));
-app.use('/', express.static(path.join(__dirname, 'static/jade.out')));
+app.use('/static', express.static(path.join(__dirname, 'static'))); // for source map
 app.use('/js', express.static(path.join(__dirname, 'bower_components')));
 app.use('/nodejs', express.static(path.join(__dirname, 'node_modules')));
 

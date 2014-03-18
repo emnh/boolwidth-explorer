@@ -2,4 +2,8 @@
 *.log
 /node_modules
 /bower_components
+/static/coffee/*.js
+/static/coffee/*.map
+/static/cb.html
 /static/coffee.out
+/trace
