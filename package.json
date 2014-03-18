@@ -11,7 +11,8 @@
     "express": "3.x",
     "bower": "1.2.x",
     "jade": "*",
-    "mori": "latest"
+    "mori": "latest",
+    "browserify": "*"
   },
   "engines": {
     "node": "0.10.x",
