@@ -432,6 +432,8 @@ doFastUnions = (rm) ->
   sampler = new Sampler(state)
   itertree = timer.timeit(() -> sampler.iterate())
   hoods = itertree.getSolutions()
+  stree = timer.timeit(() -> sampler.getTreeSamples())
+  console.log("stree", stree.getSolutions().length)
   hoodcount = hoods.length
   if hoodcount == 0
     throw "hood count bug, would cause infinite loop with chart"
@@ -479,7 +481,7 @@ doFastUnions = (rm) ->
   htree = H.div(H.ul(htree), {class: 'searchtree'})
 
   # Output first sampler
-  sampleinfo = "t=#{sample_elapsed}ms, N=#{samplect}, count=#{estimate}, acc=#{acc})"
+  sampleinfo = "t=#{sample_elapsed}ms, N=#{samplect}, count=#{Math.round(estimate)}, acc=#{acc})"
   title = H.h1("STree Estimate (#{sampleinfo})")
   H.section(title, htree, chart) # H.div("Search Tree"), ol)
   htree.ready () ->
@@ -490,13 +492,21 @@ doFastUnions = (rm) ->
   # Run second sampler
   sampler2 = new Sampler(state)
   results2 = timer.timeit(() -> sampler2.getQPosEstimate(samplect))
-  estimate = results2.estimate
+  estimate2 = results2.estimate
 
-  # Output second sampler, TODO: tree
-  sample_elapsed = timer.elapsed
-  acc = Math.round(estimate / hoodcount * 100) / 100
-  sampleinfo = "t=#{sample_elapsed}ms, N=#{samplect}, count=#{estimate}, acc=#{acc}"
+  # Output second sampler, TODO: tree?
+  sample_elapsed2 = timer.elapsed
+  acc2 = Math.round(estimate2 / hoodcount * 100) / 100
+  sampleinfo = "t=#{sample_elapsed2}ms, N=#{samplect}, count=#{Math.round(estimate2)}, acc=#{acc2}"
   title = H.h1("STree QPos Estimate (#{sampleinfo})")
+  H.section(title, "")
+
+  # Output average sampler
+  elapsed = sample_elapsed + sample_elapsed2
+  estimate = Math.round((estimate + estimate2) / 2)
+  acc = Math.round(estimate / hoodcount * 100) / 100
+  sampleinfo = "t=#{elapsed}ms, N=#{samplect*2}, count=#{estimate}, acc=#{acc}"
+  title = H.h1("Average Estimate (#{sampleinfo})")
   H.section(title, "")
 
   # Chart
@@ -578,8 +588,9 @@ class SearchTree
     @top = @root
     @stack = []
 
-  branch: (argstate) ->
-    #console.log("st branch", argstate)
+  pushThenBranch: (argstate) ->
+    console.log("st pushThenBranch", argstate)
+    # used for depth first search
     node =
       state: argstate
       children: []
@@ -592,14 +603,32 @@ class SearchTree
       @stack.push(@top)
       @top = node
 
+  branchThenPush: (argstate) ->
+    console.log("st branchThenPush", argstate)
+    # used for breadth first search
+    node =
+      state: argstate
+      children: []
+    if @root == null
+      @root = node
+      @top = node
+      @stack.push(@top)
+    else
+      @top.children.push(node)
+      @top = node
+      @stack.push(node)
+
   pop: () ->
     #console.log("st pop")
     @top = @stack.pop()
     @top
 
+  isEmpty: () ->
+    @stack.length == 0
+
   solution: (argstate) ->
     #console.log("st solution", argstate)
-    @branch argstate
+    @pushThenBranch argstate
     @top.leaf = true
     delete @top.children
     @pop()
@@ -648,7 +677,7 @@ class Sampler
     st = new SearchTree()
     solct =  0
     @itersub = (state) ->
-      st.branch state
+      st.pushThenBranch state
       if state.sample.length >= @mat.cols
         solct++
         st.solution
@@ -671,7 +700,7 @@ class Sampler
             @itersub
               sample: state.sample.concat([1])
       st.pop()
-    st.branch
+    st.pushThenBranch
       sample: []
     @itersub
       sample: []
@@ -681,8 +710,15 @@ class Sampler
     st = new SearchTree()
     solct =  0
     @itersub = (state) ->
-      st.branch state
-      while not done
+      maxlen = 5000
+      ct = 0
+      st.branchThenPush state
+      while not st.isEmpty()
+        st.pop()
+        ct += 1
+        if ct > maxlen
+          console.log("maxlen")
+          break
         st.pop()
         if state.sample.length >= @mat.cols
           solct++
@@ -698,16 +734,13 @@ class Sampler
                 sample: state.sample
             when 1
               nextval = if onect > 0 then 1 else 0
-              st.branch
+              st.branchThenPush
                 sample: state.sample.concat([nextval])
             when 2
-              st.branch
+              st.branchThenPush
                 sample: state.sample.concat([0])
-              st.branch
+              st.branchThenPush
                 sample: state.sample.concat([1])
-      st.pop()
-    st.branch
-      sample: []
     @itersub
       sample: []
     st
@@ -744,7 +777,7 @@ class Sampler
     samples = []
     st = new SearchTree()
     branch = (argstate) ->
-      st.branch(argstate)
+      st.pushThenBranch(argstate)
       stack.push(argstate)
     solution = (argstate) ->
       st.solution(argstate)
