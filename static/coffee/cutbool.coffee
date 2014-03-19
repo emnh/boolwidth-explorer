@@ -62,6 +62,76 @@ u5r = [1, 1, 1, 1, 4, 2, 1.625, 1.461, 1.368, 1.307, 1.352, 1.434, 1.5, 1.525, 1
 toType = (obj) ->
   ({}).toString.call(obj).match(/\s([a-zA-Z]+)/)[1].toLowerCase()
 
+class Node
+  constructor: () ->
+    @neighbors = []
+    @initmarked = -1
+    @marked = @initmarked
+
+  isMarked: () ->
+    @marked != @initmarked
+
+  mark: (label) ->
+    if label == @initmarked
+      throw "label should not be #{@initmarked}"
+    @marked = label
+
+class Graph
+  constructor: () ->
+    @nodes = []
+    @components = {}
+
+  addNode: (id) ->
+    if @nodes[id] == undefined
+      @nodes[id] = new Node()
+    @nodes[id]
+
+  dfs: (node, callback) ->
+    if callback(node)
+      return
+    @dfs(@nodes[neighbor], callback) for neighbor in node.neighbors
+
+  from_mat: (mat) ->
+    @mat = mat
+    j_id = (i) -> mat.cols + i
+    j_id_rev = (i) ->
+      if i > mat.cols
+        i - mat.cols
+    g = @
+    @edges = []
+    addNode = (i, j) ->
+      if mat[i][j] == 1
+        iid = i
+        jid = j_id(j)
+        g.edges.push([iid, jid])
+        inode = g.addNode(iid)
+        jnode = g.addNode(jid)
+        inode.neighbors.push(jid)
+        jnode.neighbors.push(iid)
+    addNode(i, j ) for col, j in row for row,i in mat
+    @leftids = [0..mat.cols-1]
+    @rightids = [mat.cols..mat.cols+mat.rows-1]
+  
+  connectedComponents: () ->
+    # visit nodes
+    markct = 0
+    components = []
+    for nodei, node of @nodes
+      if node.marked < 0
+        markct += 1
+        callback =
+          do (markct) ->
+            (node) ->
+              ismarked = node.isMarked()
+              if not ismarked
+                node.mark(markct)
+                if components[markct] == undefined
+                  components[markct] = []
+                components[markct].push(node)
+              return ismarked
+        @dfs(node, callback)
+    @components = components
+
 class Timer
   timeit: (fn) ->
     before = (new Date()).getTime()
@@ -236,59 +306,70 @@ unions = (mat) ->
   (addHoods(row, (addHood(hood, row) for hood in hoodar)) for row in mat)
   [hoodar, udata]
 
-drawGraph = (left, right, holder) ->
-  nodes = {}
-  
+drawGraph = (graph, chart) ->
   leftnodes =
-    for key, value of left
+    for name,i in graph.leftids
       node =
         col: 0
-        name: key
-        colindex: value
+        name: name
+        colindex: i
+        graphnode: graph.nodes[name]
   rightnodes =
-    for key, value of right
+    for name,i in graph.rightids
       node =
         col: 1
-        name: key
-        colindex: value 
+        name: name
+        colindex: i
+        graphnode: graph.nodes[name]
   nodes = leftnodes.concat(rightnodes)
+  #nodes = graph.leftids.concat(graph.rightids)
   nodesByName = {}
   nodesByName[node.name] = node for node in nodes
+  lookup = (nodeid) ->
+    nodesByName[nodeid]
+  edgeNodes = ([lookup(x), lookup(y)] for [x, y] in graph.edges)
+
+  components = graph.connectedComponents()
+
+  xpos = (d, i) ->
+    10 + d.col * 200
+  ypos = (d, i) ->
+    10 + d.colindex * 40
+
+  color = d3.scale.category20()
   
-  edges = [
-           [1, 5], [1, 6]
-           [2, 6], [2, 7]
-           [3, 7], [3, 8]
-           [4, 8], [4, 5]
-           ]
-  edgeNodes = ([nodesByName[x],nodesByName[y]] for [x, y] in edges)
-  raph = Raphael(holder[0], 320, 240)
-  s = raph.set()
-  
-  drawcol = (col, offset) ->
-    pos =
-      x: 10 + offset * 30,
-      y: 10 + col * 40
-    s.push raph.circle(pos.x, pos.y, 5).attr
-      fill: "none"
-      "stroke-width": 2
-    pos
-  (nodesByName[name].pos = drawcol(0, i) for name, i of left)
-  (nodesByName[name].pos = drawcol(1, i) for name, i of right)
-  #console.log("node", n) for n in nodesByName
-  
-  drawEdge = (left, right) ->
-    s.push raph.path("M#{left.x},#{left.y}c0,0,0,0,#{right.x-left.x},#{right.y-left.y}").attr
-      fill: "none"
-      "stroke-width": 2
-  
-  #for [a, b] in edgeNodes
-    #console.log(a.pos, b.pos)
-  #  drawEdge(a.pos, b.pos)
-    
-  s.attr stroke: Raphael.getColor()
-  
-  return
+  chart
+    .selectAll("text")
+    .data(nodes)
+    .enter()
+    .append('text')
+    .attr('cx', xpos)
+    .attr('cy', ypos)
+    .attr("font-family", "sans-serif")
+    .attr("font-size", "20px")
+    .attr("fill", "red")
+    .text("hello")
+    #.text((d, i) -> "hello" + d.col)
+
+  chart
+    .selectAll(".circle")
+    .data(nodes)
+    .enter()
+    .append('circle')
+    .attr('cx', xpos)
+    .attr('cy', ypos)
+    .attr("r", 5)
+    .attr("fill", (d, i) -> color(d.graphnode.marked))
+
+  chart.selectAll(".line")
+    .data(edgeNodes)
+    .enter()
+    .append("line")
+    .attr("x1", (d, i) -> xpos(d[0], i) + 10)
+    .attr("y1", (d, i) -> ypos(d[0], i))
+    .attr("x2", (d, i) -> xpos(d[1], i) - 10)
+    .attr("y2", (d, i) -> ypos(d[1], i))
+    .style("stroke", "black")
   
 doSetup = (rowct, colct, create_mat) ->
   [rows, cols] = [rowct, colct]
@@ -298,19 +379,25 @@ doSetup = (rowct, colct, create_mat) ->
   #console.log(rest)
   #rest = rest.filter((x) -> x > 0).reduce((x, y) -> 2 * (x - 1) /  * y)
   title = H.h1("Bipartite adjacency matrix (#{rows}, #{cols})")
+  jqsvg = $('<svg id="bigraph"/>')
+  jqsvg.height(800)
+  jqsvg.width(600)
   content = [
     H.p("rows=#{rows}, cols=#{cols}")
     H.mat2table(rm)
     H.div("Degrees")
     H.table(H.tr(H.td(deg) for deg in bigraph.getDegrees(rm)))
-    H.p("Rough estimate: #{rest}")]
+    H.p("Rough estimate: #{rest}")
+    jqsvg]
   H.section(title, content...)
 
-  holder = $('<div id="holder"/>')
-  holder.appendTo("#result")
-  leftnodes = [1..rowct]
-  rightnodes = [1..colct]
-  drawGraph(leftnodes, rightnodes, holder)
+  svgid = '#' + jqsvg.attr("id")
+  chart = d3.select(svgid)
+
+  graph = new Graph()
+  graph.from_mat(rm)
+  drawGraph(graph, chart)
+  #jqsvg.ready(() -> drawGraph(graph, chart))
   
   rm
 
@@ -441,7 +528,8 @@ doFastUnions = (rm) ->
   htmltree =
     new HTMLTree
       sampler: false
-  html_itertree = htmltree.searchTreeToHTML(itertree.root)
+  #html_itertree = htmltree.searchTreeToHTML(itertree.root)
+  html_itertree = H.li("TODO: lazyload")
   html_itertree = H.div(H.ul(html_itertree), {class: 'searchtree'})
 
   title = H.h1("Backtrack Neighborhoods (t=#{iter_elapsed}ms, count=#{hoodcount})")
@@ -473,14 +561,16 @@ doFastUnions = (rm) ->
   htmltree =
     new HTMLTree
       sampler: true
-  htree = htmltree.searchTreeToHTML(tree)
+  #htree = htmltree.searchTreeToHTML(tree)
+  htree = H.li("TODO: lazyload")
   htree = H.div(H.ul(htree), {class: 'searchtree'})
 
   # Output first sampler
   sampleinfo = "t=#{sample_elapsed}ms, N=#{samplect}, count=#{Math.round(estimate)}, acc=#{acc})"
   title = H.h1("STree Estimate (#{sampleinfo})")
   H.section(title, htree, chart) # H.div("Search Tree"), ol)
-  htree.ready () ->
+  # TODO: make lazy load
+  htree.click () ->
    $(".searchtree")
      .jstree()
      .on("loaded", () -> htree "open_all")
@@ -560,8 +650,8 @@ htmlInputs = (doCompute) ->
   inputs
 
 doCompute = (inputs) ->
-  colct = inputs.getcolumns()
-  rowct = inputs.getrows()
+  colct = parseInt(inputs.getcolumns(), 10)
+  rowct = parseInt(inputs.getrows(), 10)
   EDGE_PROB = bigRat(inputs.getedgeprob())
   samplect = inputs.getsamplecount()
   mat_type = inputs.getmat_type()
@@ -652,18 +742,14 @@ class Sampler
       parent = st.addChild(state, state.tree)
       if state.sample.length >= @mat.cols
         solct++
-        st.addLeaf # solution
-          sample: state.sample,
-            parent
+        st.addLeaf({ sample: state.sample }, parent)
       else
         zeroct = @isPartialHood(state.sample.concat([0]))
         onect = @isPartialHood(state.sample.concat([1]))
         switch (onect + zeroct)
           when 0
             solct++
-            st.addLeaf # solution
-              sample: state.sample,
-                parent
+            st.addLeaf({ sample: state.sample }, parent)
           when 1
             nextval = if onect > 0 then 1 else 0
             @itersub
@@ -676,6 +762,8 @@ class Sampler
             @itersub
               sample: state.sample.concat([1])
               tree: parent
+    
+    #cc = @connectedComponents(@mat)
     state =
       sample: []
       tree: null
@@ -747,9 +835,11 @@ class Sampler
             parentNode: state.node
           args.loopvars.branchct++
 
+
   getSamples: (in_sample, in_prob, samplect=INNER_SAMPLE_COUNT) ->
     stack = []
     samples = []
+    branchPoints = []
     st = new SearchTree()
     branch = (argstate) ->
       argstate.node = st.addChild(argstate, argstate.parentNode)
