@@ -93,8 +93,8 @@ class Graph
 
   from_mat: (mat) ->
     @mat = mat
-    j_id = (i) -> mat.cols + i
-    j_id_rev = (i) ->
+    @right_id = (i) -> mat.cols + i
+    @right_id_rev = (i) ->
       if i > mat.cols
         i - mat.cols
     g = @
@@ -102,7 +102,7 @@ class Graph
     addNode = (i, j) ->
       if mat[i][j] == 1
         iid = i
-        jid = j_id(j)
+        jid = g.right_id(j)
         g.edges.push([iid, jid])
         inode = g.addNode(iid)
         jnode = g.addNode(jid)
@@ -235,7 +235,15 @@ makeH = () ->
 H = makeH()
     
 H.mat2table = (mat) ->
-  H.table(H.tr(H.td(x) for x in row) for row in mat)
+  tdf = (x, i, j) ->
+    td = H.td(x)
+    td.data('index', [i, j])
+    td
+  rowf = (row, i) -> H.tr([H.th(i + 1)].concat(tdf(x, i, j) for x, j in row))
+  rows = (rowf(row, i) for row, i in mat)
+  headers = H.tr([H.th()].concat((H.th(i) for i in [1..mat.cols])))
+  rows = [headers].concat(rows)
+  H.table(rows)
 
 H.show = (h...) ->
   i.appendTo('#compute_results') for i in h
@@ -249,6 +257,7 @@ H.section = (title, h...) ->
     contentdiv.css("visibility", "visible")
     title.css("font-size", "large")
   H.show(H.div([atitle, contentdiv], { 'class': 'section' }))
+  title.click
   #title.click()
 
 H.u2table = (mat) ->
@@ -306,97 +315,168 @@ unions = (mat) ->
   (addHoods(row, (addHood(hood, row) for hood in hoodar)) for row in mat)
   [hoodar, udata]
 
-drawGraph = (graph, chart) ->
-  leftnodes =
-    for name,i in graph.leftids
-      node =
-        col: 0
-        name: name
-        colindex: i
-        graphnode: graph.nodes[name]
-  rightnodes =
-    for name,i in graph.rightids
-      node =
-        col: 1
-        name: name
-        colindex: i
-        graphnode: graph.nodes[name]
-  nodes = leftnodes.concat(rightnodes)
-  #nodes = graph.leftids.concat(graph.rightids)
-  nodesByName = {}
-  nodesByName[node.name] = node for node in nodes
-  lookup = (nodeid) ->
-    nodesByName[nodeid]
-  edgeNodes = ([lookup(x), lookup(y)] for [x, y] in graph.edges)
+class VisualGraph
 
-  components = graph.connectedComponents()
+  drawGraph: (graph, chart, table) ->
+    leftnodes =
+      for name,i in graph.leftids
+        node =
+          col: 0
+          name: name
+          colindex: i
+          graphnode: graph.nodes[name]
+    rightnodes =
+      for name,i in graph.rightids
+        node =
+          col: 1
+          name: name
+          colindex: i
+          graphnode: graph.nodes[name]
+    nodes = leftnodes.concat(rightnodes)
+    #nodes = graph.leftids.concat(graph.rightids)
+    nodesByName = {}
+    nodesByName[node.name] = node for node in nodes
+    edgeByIdx = []
 
-  xpos = (d, i) ->
-    10 + d.col * 200
-  ypos = (d, i) ->
-    10 + d.colindex * 40
+    makeEdge = (x, y) ->
+      edge =
+        left: nodesByName[x]
+        right: nodesByName[y]
+        hover: false
+      #console.log("make edge", edge.left.colindex, edge.right.colindex)
+      if not(edgeByIdx[edge.left.colindex])
+        edgeByIdx[edge.left.colindex] = []
+      edgeByIdx[edge.left.colindex][edge.right.colindex] = edge
+      if not(edgeByIdx[edge.right.colindex])
+        edgeByIdx[edge.right.colindex] = []
+      edgeByIdx[edge.right.colindex][edge.left.colindex] = edge
+      edge
+    edgeNodes = (makeEdge(x, y) for [x, y] in graph.edges)
 
-  color = d3.scale.category20()
-  
-  chart
-    .selectAll("text")
-    .data(nodes)
-    .enter()
-    .append('text')
-    .attr('cx', xpos)
-    .attr('cy', ypos)
-    .attr("font-family", "sans-serif")
-    .attr("font-size", "20px")
-    .attr("fill", "red")
-    .text("hello")
-    #.text((d, i) -> "hello" + d.col)
+    components = graph.connectedComponents()
 
-  chart
-    .selectAll(".circle")
-    .data(nodes)
-    .enter()
-    .append('circle')
-    .attr('cx', xpos)
-    .attr('cy', ypos)
-    .attr("r", 5)
-    .attr("fill", (d, i) -> color(d.graphnode.marked))
+    xpos = (d, i) ->
+      10 + d.col * 300
+    ypos = (d, i) ->
+      30 + d.colindex * 40
 
-  chart.selectAll(".line")
-    .data(edgeNodes)
-    .enter()
-    .append("line")
-    .attr("x1", (d, i) -> xpos(d[0], i) + 10)
-    .attr("y1", (d, i) -> ypos(d[0], i))
-    .attr("x2", (d, i) -> xpos(d[1], i) - 10)
-    .attr("y2", (d, i) -> ypos(d[1], i))
-    .style("stroke", "black")
-  
+    color = d3.scale.category20()
+    
+    # Mark node in matrix and graph visuals
+    mark = (i, j, color, edge) ->
+      row = $(".bigraph_table tr:eq(#{i+1})")
+      row.css("background", color)
+      col = $(".bigraph_table tr td:nth-child(#{j+2})")
+      col.css("background", color)
+      if edge != undefined
+        d3.select('g circle').attr("r", 10)
+        #lines.attr("r", 10)
+
+    group = chart
+      .selectAll(".circle")
+      .data(nodes)
+      .enter()
+      .append('g')
+      .attr("transform", (d) -> "translate(#{xpos(d)}, #{ypos(d)})")
+
+    me = (d, i) ->
+      switch d.col
+        when 0
+          row = $(".bigraph_table tr:eq(#{d.colindex+1})")
+          row.css("background", color(d.graphnode.marked))
+        when 1
+          col = $(".bigraph_table tr td:nth-child(#{d.colindex+2})")
+          col.css("background", color(d.graphnode.marked))
+          #edges = edgeByIdx[i][d.colindex]
+      lines
+        .filter((edge, i) -> (edge.left == d) or (edge.right == d))
+        .style("stroke-width", 3)
+        .style("stroke", "red")
+
+    ml = (d, i) ->
+      switch d.col
+        when 0
+          row = $(".bigraph_table tr:eq(#{d.colindex+1})")
+          row.css("background", "")
+          #for e in d.edgeByIdx[d.colindex]
+        when 1
+          col = $(".bigraph_table tr td:nth-child(#{d.colindex+2})")
+          col.css("background", "")
+      lines
+        .filter((edge, i) -> (edge.left == d) or (edge.right == d))
+        .style("stroke-width", 1)
+        .style("stroke", "black")
+
+    circles = group
+      .append('circle')
+      .attr("r", 8)
+      .attr("fill", (d, i) -> color(d.graphnode.marked))
+      .on("mouseenter", me)
+      .on("mouseleave", ml)
+
+    text = group
+      .append('text')
+      .attr('dx', 0)
+      .attr('dy', -15)
+      .attr("font-family", "sans-serif")
+      .attr("font-size", "20px")
+      .attr("fill", "black")
+      .text((d, i) -> d.colindex + 1)
+
+    lines = chart.selectAll(".line")
+      .data(edgeNodes)
+      .enter()
+      .append("line")
+      .attr("x1", (d, i) -> xpos(d.left, i) + 10)
+      .attr("y1", (d, i) -> ypos(d.left, i))
+      .attr("x2", (d, i) -> xpos(d.right, i) - 10)
+      .attr("y2", (d, i) -> ypos(d.right, i))
+      .style("stroke-width", 1)
+      .style("stroke", "black")
+ 
+    cells = table.find('td')
+    mfo = (e) ->
+      elem = e.target
+      [i, j] = $(elem).data('index')
+      edge = edgeByIdx[i][j]
+      mark(i, j, "red")
+    mfl = (e) ->
+      elem = e.target
+      [i, j] = $(elem).data('index')
+      edge = edgeByIdx[i][j]
+      mark(i, j, "")
+    cells.on("mouseover", mfo)
+    cells.on("mouseleave", mfl)
+
+   
 doSetup = (rowct, colct, create_mat) ->
   [rows, cols] = [rowct, colct]
   rm = create_mat(rows, cols)
-  rest = bigraph.getDegrees(rm)
-  rest = rest.reduce((x, y) -> (1 + 1/y)*x)
-  #console.log(rest)
+   #console.log(rest)
   #rest = rest.filter((x) -> x > 0).reduce((x, y) -> 2 * (x - 1) /  * y)
-  title = H.h1("Bipartite adjacency matrix (#{rows}, #{cols})")
+  bigraph_table = H.mat2table(rm).addClass("bigraph_table")
+  title = H.h1("Bipartite Graph / Matrix (#{rows}, #{cols})")
   jqsvg = $('<svg id="bigraph"/>')
   jqsvg.height(800)
   jqsvg.width(600)
   content = [
     H.p("rows=#{rows}, cols=#{cols}")
-    H.mat2table(rm)
+    bigraph_table,
     H.div("Degrees")
     H.table(H.tr(H.td(deg) for deg in bigraph.getDegrees(rm)))
-    H.p("Rough estimate: #{rest}")
     jqsvg]
   H.section(title, content...)
+  # display first section by default
+  $().ready(title.click())
 
+  vg = new VisualGraph()
+  
   svgid = '#' + jqsvg.attr("id")
   chart = d3.select(svgid)
 
   graph = new Graph()
   graph.from_mat(rm)
-  drawGraph(graph, chart)
+  vg.drawGraph(graph, chart, bigraph_table)
   #jqsvg.ready(() -> drawGraph(graph, chart))
   
   rm
@@ -422,6 +502,23 @@ doUnions = (rm) ->
           H.p("per hood: #{timer.elapsed / mori.count(hoods)} ms")
           getHoodPlaceHolder(hoods, H.u2list, "hoodsplacement")]
   H.section(H.h1(title), content...)
+
+  # Rough estimate based on degrees
+  sampler = new Sampler({mat: rm})
+  timer = new Timer()
+  result = timer.timeit(() -> sampler.getRoughEstimate())
+  {rest: rest, rest2: rest2} = result
+
+  elapsed = timer.elapsed
+  estimate = Math.round((rest + rest2) / 2)
+  acc = Math.round(estimate / mori.count(hoods) * 100) / 100
+  sampleinfo = "t=#{elapsed}ms, count=#{estimate}, acc=#{acc}"
+  content = [
+      H.p("Rough estimate (degrees #{result.deg0}): #{rest}")
+      H.p("Rough estimate2 (degrees #{result.deg1}): #{rest2}")
+      H.p("Average rough estimate: #{(rest + rest2) / 2}")]
+  H.section(H.h1("Rough Estimate: (#{sampleinfo})"), content...)
+
   hoods
 
 doMiniChart = (svgid, data) ->
@@ -734,6 +831,41 @@ class Sampler
   isPartialHood: (pat) ->
     rows = @isSubset(pat)
     @isSubsetSum(rows, pat)
+
+  getRoughEstimate: () ->
+    console.log(@mat)
+    deg = bigraph.getDegrees(@mat)
+
+    a = (x for x in deg when x > 0)
+    a.sort((a,b) -> b - a)
+    b = (x for x in deg when x > 0)
+    b.sort((a,b) -> a - b)
+
+    f = (x, y) -> (1 + 1/y)*x
+    rest = a.reduce(f, 1)
+    rest2 = b.reduce(f, 1)
+
+    result =
+      deg0: a
+      deg1: b
+      rest: rest
+      rest2: rest
+    result
+
+  spliterate: () ->
+    # X = left
+    # Z = im(X)
+    # X = A U B
+    # |A U B| = |A| + |B| - |A ^ B| = |A - A^B| + |B - A ^ B| + |A ^ B|
+    # Z = im(A) U im(B)
+    # F = im(A) ^ im(B)
+    # |Z| = |im(A U B)| = |im(A)| * |im(B)| / |im(A ^ B)|
+    # |Z| = |im(A U B)| = |im(A - A ^ B)| * |im(B - A ^ B)| * |im(A ^ B)|
+    for i in [1..4]
+      for left in mat
+        for right in mat
+          console.log(2)
+
 
   iterate: () ->
     st = new SearchTree()
