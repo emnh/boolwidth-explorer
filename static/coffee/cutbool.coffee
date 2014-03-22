@@ -1,10 +1,20 @@
 `// noprotect`
+
+#console.log( 'helo')
+#if console == undefined
+#  require '../../node_modules/big-integer/BigInteger.js'
+#  require '../../node_modules/big-rational/BigRational.js'
+#  console = {}
+#  console.log = (x...) ->
+#    printLine(x)
 # vim: st=2 sts=2 sw=2
 #
 #
 # TODO: connected components for sampler
 # TODO: show backtrack tree
 # TODO: integrate with main dc
+# TODO: finish spliterate
+# TODO: generalize sampler algorithm with edge probability
 # TODO: create general sample algorithm that runs on arbitrary search tree,
 # such that the algorithm can be combined from summing over samples of all
 # search trees to running on the graph that is the combination of all search
@@ -33,7 +43,7 @@
 # row and column count of bipartite graph
 G = 12
 #bigRat = rational
-EDGE_PROB = bigRat(1, G)
+EDGE_PROB = bigRat(1, 2)
 ROWCT = G
 COLCT = G
 MAX_DISPLAY_HOODS = 100 # maximum hoods to output to HTML
@@ -62,6 +72,48 @@ u5r = [1, 1, 1, 1, 4, 2, 1.625, 1.461, 1.368, 1.307, 1.352, 1.434, 1.5, 1.525, 1
 toType = (obj) ->
   ({}).toString.call(obj).match(/\s([a-zA-Z]+)/)[1].toLowerCase()
 
+testpost = (msg) ->
+  success = null
+  data =
+    #JSON.stringify
+    name: "emh"
+    value: "emh@emh.com"
+  $.ajax
+    type: "POST"
+    url: '/message'
+    data: data
+    success: (data) -> console.log("post success:", data)
+    dataType: 'text'
+
+testpost("helo")
+
+class Graph
+  constructor: () ->
+    @neighbors = []
+    @initmarked = -1
+    @marked = @initmarked
+
+  parseDimacs: (data) ->
+    lines = data.split('\n')
+    #firstline = lines[0].match('p edges ([\\d]+) ([\\d]+)')
+    #p = parseInt(firstline[1], 10)
+    #e = parseInt(firstline[2], 10)
+    pat = '^e ([\\d]+) ([\\d]+)'
+    edges = (edge.match(pat) for edge in lines)
+    edges = (x for x in edges when x?)
+    #console.log(edges)
+    edges = ([parseInt(edge[1], 10), parseInt(edge[2], 10)] for edge in edges)
+    @nodes = {}
+    for e in edges
+      [x,y] = e
+      if not(@nodes[x]?)
+        @nodes[x] = new Node()
+      if not(@nodes[y]?)
+        @nodes[y] = new Node()
+      @nodes[x].neighbors.push(y)
+      @nodes[y].neighbors.push(x)
+    #console.log(@nodes)
+
 class Node
   constructor: () ->
     @neighbors = []
@@ -76,9 +128,9 @@ class Node
       throw "label should not be #{@initmarked}"
     @marked = label
 
-class Graph
+class BiGraph
   constructor: () ->
-    @nodes = []
+    @nodes = {}
     @components = {}
 
   addNode: (id) ->
@@ -93,24 +145,30 @@ class Graph
 
   from_mat: (mat) ->
     @mat = mat
-    @right_id = (i) -> mat.cols + i
-    @right_id_rev = (i) ->
-      if i > mat.cols
-        i - mat.cols
-    g = @
+    @right_id = (i) -> mat.rows + i
     @edges = []
-    addNode = (i, j) ->
-      if mat[i][j] == 1
-        iid = i
-        jid = g.right_id(j)
-        g.edges.push([iid, jid])
-        inode = g.addNode(iid)
-        jnode = g.addNode(jid)
-        inode.neighbors.push(jid)
-        jnode.neighbors.push(iid)
-    addNode(i, j ) for col, j in row for row,i in mat
-    @leftids = [0..mat.cols-1]
-    @rightids = [mat.cols..mat.cols+mat.rows-1]
+    @leftids = [0..mat.rows-1]
+    if @leftids.length != mat.rows
+      throw "bad"
+    @rightids = (@right_id(j) for j in [0..mat.cols-1])
+    if @rightids.length != mat.cols
+      throw "bad"
+    (@nodes[id] = new Node() for id in @leftids.concat(@rightids))
+    g = @
+    addMatEdge = (ri, cj) ->
+      if mat[ri][cj] == 1
+        cjid = g.rightids[cj]
+        g.edges.push([ri, cjid])
+        inode = g.nodes[ri]
+        jnode = g.nodes[cjid]
+        if jnode == undefined
+          throw "jnode #{cjid},#{cj}:#{g.rightids} is undefined"
+        inode.neighbors.push(cjid)
+        jnode.neighbors.push(ri)
+    addMatEdge(ri, cj) for col,cj in row for row,ri in mat
+        
+  @matcopy: () ->
+    newmat = ((x for x in row) for row in @mat)
   
   connectedComponents: () ->
     # visit nodes
@@ -224,7 +282,7 @@ makeH = () ->
     ["script", "div", "span", "p", "ol", "ul", "li", "a", "dl", "dt", "dd",
     "table", "th", "tr", "td", "colgroup", "col", "thead", "tbody",
     "h1", "h2", "h3", "h4", "h5",
-    "label", "input", "button"]
+    "label", "input", "button", "select", "option"]
   makeTagDef = (tag) ->
     html[tag] = (content, attrs = {}) ->
       attrs.html = content
@@ -297,13 +355,8 @@ unions = (mat) ->
   hoodar.push(init)
   
   addHood = (hood, row) ->
-    #console.log("hood #{hood.length} #{hood}")
-    #console.log("row #{row.length} #{row}")
-    #console.log(zip(hood,row))
-    #union = (x + y for [x,y] in zip(hood, row))
     union = mori.into_array(binUnion(hood, row))
     union.from = [hood, row]
-    #console.log("union #{union}")
     if mori.count(union) != mori.count(hood)
       throw 'length mismatch: union #{union} hood #{hood}'
     if hoods[union] == undefined
@@ -335,7 +388,7 @@ class VisualGraph
     nodes = leftnodes.concat(rightnodes)
     #nodes = graph.leftids.concat(graph.rightids)
     nodesByName = {}
-    nodesByName[node.name] = node for node in nodes
+    (nodesByName[node.name] = node for node in nodes)
     edgeByIdx = []
 
     makeEdge = (x, y) ->
@@ -343,7 +396,6 @@ class VisualGraph
         left: nodesByName[x]
         right: nodesByName[y]
         hover: false
-      #console.log("make edge", edge.left.colindex, edge.right.colindex)
       if not(edgeByIdx[edge.left.colindex])
         edgeByIdx[edge.left.colindex] = []
       edgeByIdx[edge.left.colindex][edge.right.colindex] = edge
@@ -452,7 +504,6 @@ class VisualGraph
 doSetup = (rowct, colct, create_mat) ->
   [rows, cols] = [rowct, colct]
   rm = create_mat(rows, cols)
-   #console.log(rest)
   #rest = rest.filter((x) -> x > 0).reduce((x, y) -> 2 * (x - 1) /  * y)
   bigraph_table = H.mat2table(rm).addClass("bigraph_table")
   title = H.h1("Bipartite Graph / Matrix (#{rows}, #{cols})")
@@ -474,7 +525,7 @@ doSetup = (rowct, colct, create_mat) ->
   svgid = '#' + jqsvg.attr("id")
   chart = d3.select(svgid)
 
-  graph = new Graph()
+  graph = new BiGraph()
   graph.from_mat(rm)
   vg.drawGraph(graph, chart, bigraph_table)
   #jqsvg.ready(() -> drawGraph(graph, chart))
@@ -494,7 +545,6 @@ getHoodPlaceHolder = (mhoods, tohtml, id) ->
 doUnions = (rm) ->
   timer = new Timer()
   [hoods, unions_log] = timer.timeit(() -> unions(rm))
-  #console.log(x) for x in hoods.slice(0, 5)
   title = "Trivial Neighborhood Algorithm "
   title += "(t=#{timer.elapsed}ms, count=#{mori.count(hoods)})"
   content = [
@@ -532,7 +582,6 @@ doMiniChart = (svgid, data) ->
     chart.lines.forceY [0, 2]
     chart.xAxis.tickFormat d3.format(",f")
     chart.yAxis.tickFormat d3.format(",.2f")
-    #console.log("samples", data)
     d3.select(svgid).datum(data).call(chart)
     nv.utils.windowResize chart.update
     chart
@@ -575,7 +624,6 @@ doChart = (svgid, data) ->
     chart.lines.forceY [0, 2]
     chart.xAxis.tickFormat d3.format(",f")
     chart.yAxis.tickFormat d3.format(",.2f")
-    #console.log("samples", data)
     d3.select(svgid).datum(data).call(chart)
     nv.utils.windowResize chart.update
     chart
@@ -610,7 +658,9 @@ doFastUnions = (rm) ->
   samplect = inputs.getsamplecount()
   timer = new Timer()
   sampler = new Sampler(state)
-  itertree = timer.timeit(() -> sampler.iterate())
+  result = timer.timeit(() -> sampler.iterate())
+  itertree = result.tree
+  #sampler.spliterate()
   hoods = itertree.getSolutions()
   #stree = timer.timeit(() -> sampler.getTreeSamples())
   #console.log("stree", stree.getSolutions().length)
@@ -725,6 +775,8 @@ htmlInputs = (doCompute) ->
   button = (label) ->
     H.button(label, { 'type': 'button', 'value'})
   
+  fnameselect = H.select("", { id: "fnameselect" })
+  fnamelabel = H.label("Graph", { 'for': fnameselect })
   inputs.boxes = [
     textin("Columns", "columns", COLCT),
     textin("Rows", "rows", ROWCT),
@@ -732,7 +784,37 @@ htmlInputs = (doCompute) ->
     textin("Adjacency Matrix Type (TODO: combo)", "mat_type", MAT_TYPE.toString()),
     textin("Sample Count", "samplecount", SAMPLE_COUNT)
     ]
+  H.div([fnamelabel, fnameselect]).appendTo('#inputs')
   inputs.boxes = H.table(H.tr([H.td(label), H.td(input)]) for [label, input] in inputs.boxes)
+
+  fnamelist = "/graphlist.json"
+  showfnames = (data) ->
+    lines = data.split('\n')
+    bname = (fname) ->
+      fname.split('/')[-1]
+    options = (H.option(line, { value: line }) for line in lines when line != '')
+    $(option).appendTo(fnameselect) for option in options
+
+    # setup select change handler
+    handler = (evt) ->
+      f = (data) ->
+        g = new Graph()
+        console.log("parsing graph file", fname)
+        g.parseDimacs(data)
+      fname = evt.currentTarget.value
+      console.log("retrieving graph file", fname)
+      $.get(fname, "", f)
+    fnameselect.change(handler)
+    fnameselect.val("graphdata/graphLib_ours/cycle/c5.dimacs")
+    fnameselect.trigger("change")
+
+  H.option("Generate", { value: "generate" }).appendTo(fnameselect)
+  $.ajax
+    url: fnamelist
+    data: ""
+    success: showfnames
+    dataType: "text"
+
   inputs.compute = button("Compute").click(() -> doCompute(inputs))
   
   lshow = (h...) ->
@@ -742,7 +824,7 @@ htmlInputs = (doCompute) ->
     lshow(title)
     lshow(H.div(h))
   
-  lsection(H.h1("Input"), inputs.boxes, inputs.compute)
+  lsection(H.h1("Generate Matrix"), inputs.boxes, inputs.compute)
   #$( "input[name='#{name}']" )
   inputs
 
@@ -753,7 +835,7 @@ doCompute = (inputs) ->
   samplect = inputs.getsamplecount()
   mat_type = inputs.getmat_type()
 
-  console.clear()
+  #console.clear()
   
   r = $("#compute_results")
   r.empty()
@@ -833,7 +915,6 @@ class Sampler
     @isSubsetSum(rows, pat)
 
   getRoughEstimate: () ->
-    console.log(@mat)
     deg = bigraph.getDegrees(@mat)
 
     a = (x for x in deg when x > 0)
@@ -861,18 +942,112 @@ class Sampler
     # F = im(A) ^ im(B)
     # |Z| = |im(A U B)| = |im(A)| * |im(B)| / |im(A ^ B)|
     # |Z| = |im(A U B)| = |im(A - A ^ B)| * |im(B - A ^ B)| * |im(A ^ B)|
-    for i in [1..4]
-      for left in mat
-        for right in mat
-          console.log(2)
+    mat = @mat
+    graph = new BiGraph()
+    graph.from_mat(mat)
 
+    mid = mat.rows / 2
+    A = mat.slice(0, mid)
+    B = mat.slice(mid)
+    union = (r1, r2) ->
+      (r1[i] | r2[i] for x, i in r1)
+    intersect = (r1, r2) ->
+      (r1[i] & r2[i] for x, i in r1)
+
+    Ac = @count(A)
+    Bc = @count(B)
+    imA = A.reduce(union)
+    imB = B.reduce(union)
+    F = intersect(imA, imB)
+
+    rmat = ([] for x in mat[0])
+    for row,i in mat
+      for x,j in row
+        rmat[j][i] = mat[i][j]
+
+    imF = (rmat[i] for x,i in F when x == 1)
+    imFidx = (i for x,i in F when x == 1)
+
+    imAnoB = ([i, rmat[i]] for x,i in F when i < mid and x != 1)
+    imBnoA = ([i, rmat[i]] for x,i in F when i >= mid and x != 1)
+    # TODO: check for empty before calling iterate
+    imAnoBhoods = @iterate((x[1] for x in imAnoB))
+    imBnoAhoods = @iterate((x[1] for x in imBnoA))
+    imAnoBc = imAnoBhoods.count
+    imBnoAc = imBnoAhoods.count
+
+    hjoin = {}
+    samplect = 10 # O(n^2)
+    hoods1 = (h1 for {sample: h1} in imAnoBhoods.tree.getSolutions())
+    hoods2 = (h2 for {sample: h2} in imBnoAhoods.tree.getSolutions())
+    selectrandom = (ar) ->
+      num = Math.floor(Math.random() * ar.length)
+      ar[num]
+    hoods1sampleidx  = (selectrandom(hoods1) for i in [1..samplect])
+    hoods2sampleidx  = (selectrandom(hoods2) for i in [1..samplect])
+    for h1 in hoods1sampleidx
+      for h2 in hoods2sampleidx
+        do (h1, h2) ->
+          nhood = union(h1, h2)
+          hjoin[nhood] = 1
+    ratio = Object.keys(hjoin).length / (samplect * samplect)
+    
+    colorRow = (indices, color) ->
+      for i in indices
+        row = $(".bigraph_table tr:eq(#{i+1})")
+        row.css("background", color)
+    colorCol = (indices, color) ->
+      for i in indices
+        row = $(".bigraph_table td:nth-child(#{i+2})")
+        row.css("background", color)
+
+    #colorLine(F, 'tr', 'cyan')
+    colorCol(imFidx, 'magenta')
+    colorCol((i for [i, row] in imAnoB), 'cyan')
+    colorCol((i for [i, row] in imBnoA), 'pink')
+
+    imFc = @count(imF)
+    table = $('bigraph_table')
+    console.log("A", A, imA, Ac)
+    console.log("B", B, imB, Bc)
+    console.log("AnoB", imAnoB, imAnoBc)
+    console.log("BnoA", imBnoA, imBnoAc)
+    console.log("F", F, imFc)
+    console.log("imF", imF, imFc)
+    console.log("upper", Ac * Bc, Ac * Bc / imFc)
+    console.log("lower", imAnoBc * imBnoAc, imAnoBc * imBnoAc * imFc)
+    console.log("avg", Math.pow(Math.E, (Math.log(Ac * Bc) + Math.log(imAnoBc * imBnoAc)) / 2))
+    console.log("length check", mat.cols, imAnoB.length + imBnoA.length + imF.length)
+    console.log("hjoin", Object.keys(hjoin).length, ratio, Ac * Bc * ratio)
+    state = {}
+    state.A = A
+    state.B = B
+
+    #groups = []
+    #group = []
+    #overlap = (group, pat) ->
+    #  (row for row in group when pat.every((e, i) -> e == '?' or row[i] < e))
+    #for row,i in mat
+    #  if not(overlap(group,row))
+    #    group.push(row)
+    #  else
+    #    groups.push(group)
+    #    group = []
+
+  count: (mat) ->
+    if mat.length > 0
+      s = new Sampler
+            mat: mat
+      s.iterate().count
+    else
+      1
 
   iterate: () ->
     st = new SearchTree()
     solct =  0
     @itersub = (state) ->
       parent = st.addChild(state, state.tree)
-      if state.sample.length >= @mat.cols
+      if state.sample.length >= @mat[0].length
         solct++
         st.addLeaf({ sample: state.sample }, parent)
       else
@@ -901,7 +1076,9 @@ class Sampler
       tree: null
     st.addChild state
     @itersub state
-    st
+    result =
+      count: solct
+      tree: st
 
   getQPosSample: (sample, prob) ->
     qpos = (i for x,i in sample when x == '?')
@@ -1069,7 +1246,8 @@ samplerStats = () ->
           #
           sampler = new Sampler({mat: rm})
 
-          tree = timer.timeit(() -> sampler.iterate())
+          result = timer.timeit(() -> sampler.iterate())
+          tree = result.tree
           elapsed_hoods = timer.elapsed
           count = tree.getSolutions().length
 
@@ -1138,7 +1316,10 @@ samplerStats = () ->
     content.addClass("nums")
     H.section(H.h1(title), content)
   mktable("Summary Count|Estimate", fmt_a)
-  mktable("Summary Accuracy", fmt_b)
+  acc_avg = 0
+  (acc_avg += mat[i][j].accuracy for j in [mincolct..maxcolct] for i in [minrowct..maxrowct])
+  acc_avg /= ((maxcolct - mincolct) * (maxrowct - minrowct))
+  mktable("Summary Accuracy (avg: #{acc_avg})", fmt_b)
   mktable("Summary Time", fmt_c)
   mktable("Summary Charts", fmt_d)
 

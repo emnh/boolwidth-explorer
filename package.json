@@ -12,6 +12,9 @@
     "bower": "1.2.x",
     "jade": "*",
     "mori": "latest",
+    "big-integer": "latest",
+    "big-rational": "latest",
+    "neo4j": "latest",
     "browserify": "*"
   },
   "engines": {

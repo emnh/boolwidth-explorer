@@ -1,0 +1,3 @@
+[submodule "graphdata"]
+	path = graphdata
+	url = https://github.com/emnh/boolwidth-data
