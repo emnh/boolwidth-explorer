@@ -9,6 +9,14 @@ routes = require("./routes")
 users = require("./routes/user")
 app = express()
 
+# Notice the following code is coffescript
+#coffeeDir = __dirname + '/coffee'
+#publicDir = __dirname + '/public'
+#app.use express.compiler(src: coffeeDir, dest: publicDir, enable: ['coffeescript'])
+#app.use express.static(publicDir)
+#
+app.use require('connect-assets')()
+
 # view engine setup
 app.set "views", path.join(__dirname, "views")
 app.set "view engine", "jade"
