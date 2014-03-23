@@ -1,17 +1,10 @@
 `// noprotect`
 
-#console.log( 'helo')
-#if console == undefined
-#  require '../../node_modules/big-integer/BigInteger.js'
-#  require '../../node_modules/big-rational/BigRational.js'
-#  console = {}
-#  console.log = (x...) ->
-#    printLine(x)
 # vim: st=2 sts=2 sw=2
 #
-#
-# TODO: connected components for sampler
-# TODO: show backtrack tree
+
+# TODO: use connected components in sampler
+# TODO: lazy load backtrack tree
 # TODO: integrate with main dc
 # TODO: finish spliterate
 # TODO: generalize sampler algorithm with edge probability
@@ -85,7 +78,14 @@ testpost = (msg) ->
     success: (data) -> console.log("post success:", data)
     dataType: 'text'
 
-testpost("helo")
+posthoodstat = (data) ->
+  $.ajax
+    type: "POST"
+    url: '/bigraph_stat'
+    data: data
+    success: (data) -> console.log("post success:", data)
+    dataType: 'text'
+
 
 class Graph
   constructor: () ->
@@ -108,11 +108,45 @@ class Graph
       [x,y] = e
       if not(@nodes[x]?)
         @nodes[x] = new Node()
+        @nodes[x].name = x
       if not(@nodes[y]?)
         @nodes[y] = new Node()
+        @nodes[y].name = y
       @nodes[x].neighbors.push(y)
       @nodes[y].neighbors.push(x)
     #console.log(@nodes)
+
+class Decomposition
+  
+  constructor: () ->
+    0
+
+  trivialDecomposition: (graph) ->
+    dc = (nodes) ->
+      if nodes.length > 1
+        mid = nodes.length / 2
+        left = nodes.slice(0, mid)
+        right = nodes.slice(mid)
+        tree =
+          leftnodes: left
+          rightnodes: right
+          left: dc(left)
+          right: dc(right)
+      else
+        tree =
+          item: nodes[0]
+    @tree = dc(graph.nodes)
+
+    computeHoods = (tree) ->
+      left = tree.leftnodes
+      right = tree.rightnodes
+      mat = [[] for i in left]
+      for lnode,ri in left
+        for rnode,cj in right
+          if lnode.neighbors.some((n) -> n == right[cj])
+            mat[ri][cj] == 1
+
+    
 
 class Node
   constructor: () ->
@@ -275,6 +309,12 @@ bigraph.getDegrees = (mat) ->
   addcol = (x, y) -> x + y
   rowcmp = (a, b) -> mori.into_array(mori.map(addcol, a, b))
   mori.reduce(rowcmp, mori.into_array(mat))
+
+bigraph.transpose = (mat) ->
+  rmat = ([] for x in mat[0])
+  for row,i in mat
+    for x,j in row
+      rmat[j][i] = mat[i][j]
 
 makeH = () ->
   html = {}
@@ -751,6 +791,17 @@ doFastUnions = (rm) ->
   data = getChartData(samples, samples2, hoodcount)
   #doChart(chartid, data)
   $().ready(() -> doChart(chartid, data))
+
+  # Save stats to DB
+  # TODO: sort matrix by edge degrees
+  posthoodstat
+    rows: rm.rows
+    cols: rm.cols
+    rowDegrees: bigraph.getDegrees(rm)
+    colDegrees: bigraph.getDegrees(bigraph.transpose(rm))
+    matrix: (row for row in rm)
+    hoodcount: hoodcount
+
 
 investigateHoodCounts = () ->
   cts = []
