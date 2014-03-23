@@ -9,6 +9,7 @@
     "coffee-script": "1.6.x",
     "coffee-script-redux": "2.x",
     "express": "3.x",
+    "express-generator": "latest",
     "bower": "1.2.x",
     "jade": "*",
     "mori": "latest",
@@ -22,7 +23,7 @@
     "npm": "1.2.x"
   },
   "scripts": {
-    "start": "node server.js",
+    "start": "node node_modules/coffee-script/bin/coffee server.coffee",
     "postinstall": "node node_modules/coffee-script/bin/cake build"
   }
 }
