@@ -596,18 +596,17 @@ doUnions = (rm) ->
   # Rough estimate based on degrees
   sampler = new Sampler({mat: rm})
   timer = new Timer()
-  result = timer.timeit(() -> sampler.getRoughEstimate())
-  {rest: rest, rest2: rest2} = result
+  result = timer.timeit(() -> sampler.getRoughEstimate(mori.count(hoods)))
 
-  elapsed = timer.elapsed
-  estimate = Math.round((rest + rest2) / 2)
-  acc = Math.round(estimate / mori.count(hoods) * 100) / 100
-  sampleinfo = "t=#{elapsed}ms, count=#{estimate}, acc=#{acc}"
+  sampleinfo = "t=#{timer.elapsed}ms, count=#{result.rest}, acc=#{result.acc(result.rest)}"
+  title = H.h1("Rough Estimate: (#{sampleinfo})")
   content = [
-      H.p("Rough estimate (degrees #{result.deg0}): #{rest}")
-      H.p("Rough estimate2 (degrees #{result.deg1}): #{rest2}")
-      H.p("Average rough estimate: #{(rest + rest2) / 2}")]
-  H.section(H.h1("Rough Estimate: (#{sampleinfo})"), content...)
+      H.p("Rough estimate (degrees #{result.deg0}): #{result.rest}, acc: #{result.acc(result.rest)}")
+      H.p("Rough estimate2 (degrees #{result.deg1}): #{result.rest2}, acc: #{result.acc(result.rest2)}")
+      H.p("Average rough estimate: #{(result.avgest) / 2}, acc: #{result.acc(result.avgest)}")
+      H.p("Random Graph Theoretical Estimate: (#{result.rndest}, acc: #{result.acc(result.rndest)})")]
+  H.section(title, content...)
+  title.click()
 
   hoods
 
@@ -965,7 +964,7 @@ class Sampler
     rows = @isSubset(pat)
     @isSubsetSum(rows, pat)
 
-  getRoughEstimate: () ->
+  getRoughEstimate: (exact) ->
     deg = bigraph.getDegrees(@mat)
 
     a = (x for x in deg when x > 0)
@@ -977,11 +976,25 @@ class Sampler
     rest = a.reduce(f, 1)
     rest2 = b.reduce(f, 1)
 
+    # Random Graph Estimate
+    mul = 6
+    p = 0
+    for row in @mat
+      for x in row when x == 1
+        p++
+    console.log("Probability", p, (@mat.cols * @mat.rows), p / (@mat.cols * @mat.rows))
+    p /= (@mat.cols * @mat.rows)
+    rndest = Math.round(mul*Math.log(@mat.rows)*Math.log(@mat.cols)/p)
+
     result =
       deg0: a
       deg1: b
-      rest: rest
-      rest2: rest
+      acc: (estimate) -> Math.round(estimate / exact * 100) / 100
+      rest: Math.round(rest)
+      rest2: Math.round(rest2)
+      avgest: (rest + rest2) / 2
+      rndest: Math.round(rndest)
+      p: p
     result
 
   spliterate: () ->

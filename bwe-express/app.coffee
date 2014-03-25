@@ -29,6 +29,7 @@ app.use require("stylus").middleware(path.join(__dirname, "public"))
 app.use express.static(path.join(__dirname, "public"))
 app.use app.router
 app.get "/", routes.index
+app.get "/experiment", routes.experiment
 app.get "/users", users.list
 
 #/ catch 404 and forwarding to error handler
