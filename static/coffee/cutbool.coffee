@@ -17,6 +17,7 @@
 # Ace 9 Editor: http://ace.c9.io/build/kitchen-sink.html for search/replace
 # QuickLatex: for compiling Latex algorithms to images for web display
 # MoonScript: http://moonscript.org/, CoffeeScript for Lua, for perf
+# Statistics Programming: http://www.greenteapress.com/thinkstats/html/
 
 # ==== Approximation Resources
 #
