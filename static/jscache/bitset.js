@@ -1,7 +1,7 @@
 (function() {
   var BitSet;
 
-  module.exports = BitSet = (function() {
+  BitSet = (function() {
 
     function BitSet() {
       this.bitsPerWord = 32;
