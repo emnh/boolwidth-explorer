@@ -1,0 +1,122 @@
+body {
+  font: 13px sans-serif;
+  position: relative;
+}
+
+#graphtext textarea,
+#treetext textarea
+{
+    width: 100%;
+    height: 100%;
+}
+
+#split
+{
+    border: 0px;
+}
+#menu
+{
+    float: left;
+}
+.chart
+{
+    width: 600;
+    height: 800;
+    border: 1px solid gray;
+    float: left;
+    margin-right: 2px;
+}
+
+#grapvhis text
+{
+  font: 12px sans-serif;
+  pointer-events: none;
+}
+
+#graphvis text.id
+{
+  text-anchor: middle;
+  font-weight: bold;
+}
+
+#graphvis .node
+{
+  cursor: crosshair;
+}
+
+#treevis .treenode circle:hover,
+#treevis .treenode.leaf circle:hover,
+#graphvis .node.node_marked circle {
+    fill: pink;
+}
+
+#graphvis .node_selected {
+  fill: #ff7f0e;
+}
+
+#graphvis .node_target {
+  fill: #007f0e;
+  stroke: #007f0e;
+}
+
+#graphvis .drag_line {
+  stroke: #999;
+  stroke-width: 5;
+  pointer-events: none;
+}
+
+#graphvis .drag_line_hidden {
+  stroke: #999;
+  stroke-width: 0;
+  pointer-events: none;
+}
+
+#graphvis .link {
+  stroke: #999;
+  stroke-width: 1;
+  cursor: crosshair;
+}
+
+#graphvis .link_selected {
+  stroke: #ff7f0e;
+}
+
+#treevis .treenode circle {
+    fill: white;
+    stroke: gray;
+}
+
+#graphvis .node circle,
+#treevis .treenode.leaf circle {
+    fill: lightblue;
+    stroke: gray;
+}
+
+#treevis text {
+    font: sans-serif;
+}
+
+#treevis .treenode circle.dragtarget
+{
+    fill: red;
+}
+
+#treevis .treenode.entered circle,
+#treevis .treenode.leaf.entered circle
+{
+    fill: pink;
+}
+
+#clustervis .node circle {
+  fill: #fff;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}
+#clustervis .node {
+  font: 10px sans-serif;
+}
+#clustervis .link {
+  fill: none;
+  stroke: #ccc;
+  stroke-width: 1.5px;
+}
