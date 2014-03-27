@@ -58,17 +58,17 @@ app.post "/bigraph_stat", (request, response) ->
       name: name
       hoodcount: data.hoodcount
       matrix: JSON.stringify(data.matrix)
-   node.save (err, node) -> # ...this is what actually persists.
-      if err?
-        console.error "Error saving new node to database:", err
-        response.send
-          message: "Error saving new node to database:"
-          error: err
-      else
-        console.log "Node saved to database with id:", node.id
-        response.send
-          message: "Node saved to database"
-          id: node.id
+  node.save (err, node) -> # ...this is what actually persists.
+    if err?
+      console.error "Error saving new node to database:", err
+      response.send
+        message: "Error saving new node to database:"
+        error: err
+    else
+      console.log "Node saved to database with id:", node.id
+      response.send
+        message: "Node saved to database"
+        id: node.id
 
 #response.send(request.body)
 neo4jurl = process.env.NEO4J_URL or "http://localhost:7474"
