@@ -1,5 +1,4 @@
-`// noprotect`
-
+# `// noprotect`
 # vim: st=2 sts=2 sw=2
 #
 
@@ -32,7 +31,9 @@
 # [Adapting the Weighted Backtrack Estimator to Conflict Driven Search](http://www.inf.ucv.cl/~bcrawford/2009_1%20Papers%20Tesis/0805.pdf)
 #
 
-# probability of edge in bipartite graph
+bigRat = require('../jscache/BigInt_BigRat.min.js')
+mori = require('../jscache/mori.js')
+#$ = require('../jscache/jquery.js')
 
 # row and column count of bipartite graph
 G = 12
@@ -383,11 +384,12 @@ binUnion = (a,b) ->
   mori.map(((x,y) -> x | y), a, b)
   #(a[i] | b[i] for _,i in a)
 
-unions = (mat) ->
-  udata = H.div("")
-  ulog = (fn) -> fn().appendTo(udata)
-  # debug off
-  ulog = (fn) -> 0
+unions = (mat,ulog) ->
+  # udata = H.div("")
+  # ulog = (fn) -> fn().appendTo(udata)
+  if not ulog?
+    # debug off
+    ulog = (fn) -> 0
   hoods = {}
   hoodar = []
   cols = mat.cols
@@ -407,7 +409,7 @@ unions = (mat) ->
   addHoods = (row) ->
     ulog(() -> H.div("Parent: " + row))
   (addHoods(row, (addHood(hood, row) for hood in hoodar)) for row in mat)
-  [hoodar, udata]
+  hoodar
 
 class VisualGraph
 
@@ -585,7 +587,7 @@ getHoodPlaceHolder = (mhoods, tohtml, id) ->
   
 doUnions = (rm) ->
   timer = new Timer()
-  [hoods, unions_log] = timer.timeit(() -> unions(rm))
+  hoods = timer.timeit(() -> unions(rm))
   title = "Trivial Neighborhood Algorithm "
   title += "(t=#{timer.elapsed}ms, count=#{mori.count(hoods)})"
   content = [
@@ -1400,8 +1402,26 @@ samplerStats = () ->
   data = exactdata.concat(dv)
   $(chart).ready(() -> doChart(chartid, data))
 
-inputs = htmlInputs(doCompute)
-doCompute(inputs)
-#samplerStats()
+consoletest = () ->
+  colct = COLCT
+  rowct = ROWCT
+  edge_prob = EDGE_PROB
+  samplect = SAMPLE_COUNT
+  mat_type = MAT_TYPE
 
-console.log("I think uncaught type-errors from nvd3 can be ignored as long as graphs show up fine")
+  create_mat = eval('bigraph.' + mat_type)
+  rm = create_mat(rowct, colct)
+  hoods = unions(rm)
+  console.log("hood count", mori.count(hoods))
+  rm
+
+if window?
+  # browser
+  inputs = htmlInputs(doCompute)
+  doCompute(inputs)
+  console.log("I think uncaught type-errors from nvd3 can be ignored as long as graphs show up fine")
+  #samplerStats()
+else
+  # console testing
+  console.log("console testing")
+  consoletest()
