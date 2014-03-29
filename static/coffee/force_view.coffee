@@ -283,7 +283,7 @@ window.force_view = (containerid) ->
     ids = {}
     for i of node_ids
       ids[node_ids[i]] = 1
-    node.classed "node_marked", (d) ->
+    gstate.node.classed "node_marked", (d) ->
       ids[parseInt(d.id)]
 
     force_obj.marked_nodes = ids
