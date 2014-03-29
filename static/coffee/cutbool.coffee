@@ -125,7 +125,7 @@ class Decomposition
     0
 
   trivialDecomposition: (graph) ->
-    computeHoods = (tree) ->
+    getBipartiteMatrix = (tree) ->
       left = tree.leftnodes # indices
       right = tree.rightnodes
       right_revmap = {}
@@ -153,7 +153,7 @@ class Decomposition
           state:
             items: nodes
         tree.children = [tree.left, tree.right]
-        tree.state.mat = computeHoods(tree)
+        tree.state.mat = getBipartiteMatrix(tree)
         sampler =
           new Sampler
             mat: tree.state.mat
@@ -169,7 +169,7 @@ class Decomposition
     nodes = Object.keys(graph.nodes)
     @tree = dc(nodes)
 
-    console.log(@tree)
+    #console.log(@tree)
 
     @tree
     
@@ -845,7 +845,7 @@ makeProcessGraph = (opts) ->
     tree = dc.trivialDecomposition(graph)
     htree = new HTMLTree({})
     htmldecomp = htree.decompToHTML(tree)
-    console.log("htmldecomp", htmldecomp)
+    #console.log("htmldecomp", htmldecomp)
     content = [htmldecomp]
     title = H.h1("Decomposition of #{opts.fname}")
     H.section(title, content...)
@@ -854,7 +854,8 @@ doDecomposition = (rm) ->
   sampler =
     new Sampler
       mat: rm
-  fname = "graphdata/graphLib_ours/hsugrid/hsu-4x4.dimacs"
+  #fname = "graphdata/graphLib_ours/hsugrid/hsu-4x4.dimacs"
+  fname = "graphdata/graphLib/coloring/queen5_5.dgf"
   processGraph =
     makeProcessGraph
       fname: fname
