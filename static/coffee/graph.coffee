@@ -1,3 +1,52 @@
+class window.Node
+  constructor: () ->
+    @neighbors = []
+    @initmarked = -1
+    @marked = @initmarked
+
+  isMarked: () ->
+    @marked != @initmarked
+
+  mark: (label) ->
+    if label == @initmarked
+      throw "label should not be #{@initmarked}"
+    @marked = label
+
+class window.Graph
+  constructor: () ->
+    @neighbors = []
+    @initmarked = -1
+    @marked = @initmarked
+
+  parseDimacs: (data) ->
+    lines = data.split('\n')
+    #firstline = lines[0].match('p edges ([\\d]+) ([\\d]+)')
+    #p = parseInt(firstline[1], 10)
+    #e = parseInt(firstline[2], 10)
+    pat = '^e ([\\d]+) ([\\d]+)'
+    edges = (edge.match(pat) for edge in lines)
+    edges = (x for x in edges when x?)
+    #console.log(edges)
+    edges = ([parseInt(edge[1], 10), parseInt(edge[2], 10)] for edge in edges)
+    @edges = edges
+    @nodes = {}
+    for e in edges
+      [x,y] = e
+      if not(@nodes[x]?)
+        @nodes[x] = new Node()
+        @nodes[x].name = x
+      if not(@nodes[y]?)
+        @nodes[y] = new Node()
+        @nodes[y].name = y
+      @nodes[x].neighbors.push(y)
+      @nodes[y].neighbors.push(x)
+    @noderev = {}
+    @noderev = {}
+    nodeseq = (name for name,node of @nodes)
+    for name, i in nodeseq
+      @noderev[name] = i
+    console.log(@noderev)
+
 window.getSimpleGraph = (graph) ->
   simplenodes = {}
   graph.nodes.forEach (n) ->

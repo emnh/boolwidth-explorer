@@ -1,19 +1,14 @@
-window.force_view = (container) ->
-  
-  # mouse event vars
-  
-  # init svg
-  
-  # init force layout
-  
-  #var graph = JSON.retrocycle(graphstr);
-  #var i = 1;
-  #graph.nodes = graph.nodes.map(function(n) { n.id = i; i += 1; return n; });
-  # initialize with a single node
-  
-  # line displayed when dragging new nodes
-  
-  # get layout properties
+window.force_view = (options) ->
+
+  container = options.container
+  # options.graph can contain graph to show
+
+  resetMouseVars = ->
+    mvars.mousedown_node = null
+    mvars.mouseup_node = null
+    mvars.mousedown_link = null
+    return
+
   dragstart = (d, i) ->
     mvars.mousedown_node = d
     if mvars.mousedown_node is mvars.selected_node
@@ -30,10 +25,12 @@ window.force_view = (container) ->
       .attr("y2", mvars.mousedown_node.y)
     redraw()
     return
+
   dragmove = (d, i) ->
     point = d3.mouse(mvars.background)
     tick()
     return
+
   dragend = (d, i) ->
     target = d3.event.sourceEvent.target
     target = jq(target).data("dragtarget")
@@ -50,6 +47,61 @@ window.force_view = (container) ->
     # clear mouse event vars
     resetMouseVars()
     return
+ 
+  mousedown = ->
+    console.log "svg mousedown"
+    
+    return 0
+    # allow panning if nothing is selected
+    #vis.call(d3.behavior.zoom().on("zoom"), rescale);
+    return  if not mvars.mousedown_node and not mvars.mousedown_link
+
+  mousemove = ->
+    return  unless mvars.mousedown_node
+    
+    #console.log("svg mousemove");
+    
+    # update drag line
+    drag_line
+      .attr("x1", mvars.mousedown_node.x)
+      .attr("y1", mvars.mousedown_node.y)
+      .attr("x2", d3.mouse(mvars.background)[0])
+      .attr "y2", d3.mouse(mvars.background)[1]
+    return
+
+  mouseup = ->
+    console.log "svg mouseup"
+    point = d3.mouse(mvars.background)
+    add_node point
+    return
+
+  add_node = (point) ->
+    if mvars.mousedown_node
+      
+      # hide drag line
+      drag_line.attr "class", "drag_line_hidden"
+      unless mvars.mouseup_node
+        
+        # add node
+        node =
+          x: point[0]
+          y: point[1]
+          id: d3.max(force_obj.nodes, (d) -> parseInt(d.id, 10)) + 1
+
+        n = force_obj.nodes.push(node)
+        
+        # select new node
+        mvars.selected_node = node
+        mvars.selected_link = null
+        
+        # add link to mousedown node
+        force_obj.links.push
+          source: mvars.mousedown_node
+          target: node
+
+      redraw()
+    return
+
   add_edge = (d, i) ->
     console.log "add_edge: " + d
     if mvars.mousedown_node
@@ -74,64 +126,7 @@ window.force_view = (container) ->
       #vis.call(d3.behavior.zoom().on("zoom"), rescale);
       redraw()
     return
-  
-  #mouseup();
-  # using mousedown instead
-  mousedown = ->
-    console.log "svg mousedown"
-    
-    # allow panning if nothing is selected
-    #vis.call(d3.behavior.zoom().on("zoom"), rescale);
-    return  if not mvars.mousedown_node and not mvars.mousedown_link
-  mousemove = ->
-    return  unless mvars.mousedown_node
-    
-    #console.log("svg mousemove");
-    
-    # update drag line
-    drag_line.attr("x1", mvars.mousedown_node.x)
-      .attr("y1", mvars.mousedown_node.y)
-      .attr("x2", d3.mouse(mvars.background)[0])
-      .attr "y2", d3.mouse(mvars.background)[1]
-    return
-  mouseup = ->
-    console.log "svg mouseup"
-    point = d3.mouse(mvars.background)
-    add_node point
-    return
-  add_node = (point) ->
-    if mvars.mousedown_node
-      
-      # hide drag line
-      drag_line.attr "class", "drag_line_hidden"
-      unless mvars.mouseup_node
-        
-        # add node
-        node =
-          x: point[0]
-          y: point[1]
-          id: d3.max(force_obj.nodes, (d) ->
-            d.id
-          ) + 1
-
-        n = force_obj.nodes.push(node)
-        
-        # select new node
-        mvars.selected_node = node
-        mvars.selected_link = null
-        
-        # add link to mousedown node
-        force_obj.links.push
-          source: mvars.mousedown_node
-          target: node
-
-      redraw()
-    return
-  resetMouseVars = ->
-    mvars.mousedown_node = null
-    mvars.mouseup_node = null
-    mvars.mousedown_link = null
-    return
+ 
   tick = (e) ->
     crossing = (n) ->
       
@@ -179,10 +174,11 @@ window.force_view = (container) ->
     im = d3.select("#interaction_mode")
     value = im.property("value")
     #console.log("interaction mode optval", value)
-    if value == "move"
-      dragfunction = force_layout.drag
-    else
-      dragfunction = node_drag
+    dragfunction =
+      if value == "move"
+        force_layout.drag
+      else
+        node_drag
     dragfunction
   
   # redraw force layout
@@ -193,14 +189,13 @@ window.force_view = (container) ->
       g.append("svg:circle").attr("class", "node").attr("r", 5).transition().duration(750).ease("elastic").attr "r", 10
       g.append("svg:text").attr("x", 0).attr("y", 4).attr("class", "id").text (d, i) ->
         d.id
-
       
       # drag on g and each child of .node svg:g
       g.call getDragFunction()
       g.each (d, i) ->
         d3this = d3.select(this)
-        d3this.call getDragFunction()
         d3this.selectAll("*").each f = (o) ->
+          d3.select(this).call getDragFunction()
           jq(this).data "dragtarget", d
           return
 
@@ -217,7 +212,7 @@ window.force_view = (container) ->
     drawLinks = ->
       #link = vis.selectAll(".link")
       link = gstate.link = gstate.link.data(force_obj.links)
-      link.enter().insert("line", ".node").attr("class", "link").on "mousedown", (d) ->
+      mf = (d) ->
         mvars.mousedown_link = d
         if mvars.mousedown_link is selected_link
           mvars.selected_link = null
@@ -225,7 +220,10 @@ window.force_view = (container) ->
           mvars.selected_link = mousedown_link
         mvars.selected_node = null
         redraw(state)
-        return
+      link.enter()
+        .insert("line", ".node")
+        .attr("class", "link")
+        .on("mousedown", mf)
 
       link.exit().remove()
       link.classed "link_selected", (d) ->
@@ -244,8 +242,6 @@ window.force_view = (container) ->
         console.log "localStorage not supported. can't save graph."
       return
     
-    #var graphstr = JSON.decycle(graph);
-    #$.totalStorage('graph', graphstr);
     drawNodes(state)
     drawLinks()
     saveData()
@@ -314,6 +310,9 @@ window.force_view = (container) ->
     mouseup_node: null
     node_target: null
 
+  # container is jquery element
+  container.empty()
+
   outer = d3.select(container[0])
     .attr("width", width + 5)
     .attr("height", height + 5)
@@ -321,8 +320,6 @@ window.force_view = (container) ->
     .attr("width", width)
     .attr("height", height)
     .attr("pointer-events", "all")
-
-  console.log(outer)
 
   vis = outer.append("svg:g")
     .call(d3.behavior.zoom()
@@ -343,21 +340,27 @@ window.force_view = (container) ->
 
   force_layout = undefined
   graphstr = undefined
-  try
-    graphstr = window.localStorage["graph"]
-  catch e
-    console.log "localStorage not supported. can't save graph."
-  if graphstr isnt `undefined` and graphstr isnt null
-    graph = JSON.retrocycle(JSON.parse(graphstr))
-    force_layout = d3.layout.force().size([
-      width
-      height
-    ]).nodes(graph.nodes).links(graph.links).linkDistance(50).charge(-200).on("tick", tick)
+  if options.graph?
+    graph = options.graph
   else
-    force_layout = d3.layout.force().size([
-      width
-      height
-    ]).nodes([id: 1]).linkDistance(50).charge(-200).on("tick", tick)
+    try
+      graphstr = window.localStorage["graph"]
+    catch e
+      console.log "localStorage not supported. can't save graph."
+    if graphstr?
+      graph = JSON.retrocycle(JSON.parse(graphstr))
+    else
+      graph =
+        nodes: [{id: 1}]
+        links: []
+  force_layout =
+    d3.layout.force()
+    .size([width, height])
+    .nodes(graph.nodes)
+    .links(graph.links)
+    .linkDistance(50)
+    .charge(-200)
+    .on("tick", tick)
   drag_line = vis.append("line").attr("class", "drag_line").attr("x1", 0).attr("y1", 0).attr("x2", 0).attr("y2", 0)
   dragTarget = undefined
   force_obj.nodes = force_layout.nodes()
@@ -383,7 +386,22 @@ window.force_view = (container) ->
   # vis.node().focus();
   d3.select("#interaction_mode").on "change", (i) ->
     console.log "change"
-    d3.selectAll(".node").call getDragFunction()
+    gstate.node.call getDragFunction()
     return
 
+  # Public methods
+  force_obj.addNode = () ->
+    add_node()
+
+  force_obj.addEdge = () ->
+    add_edge()
+
   force_obj
+
+class window.ForceView
+  constructor: (container) ->
+    @inner = force_view(container)
+    @nodes = @inner.nodes
+
+  addNode: () ->
+    @inner.add_node([0, 0])
