@@ -34,6 +34,11 @@
 # bigRat = require('../jscache/BigInt_BigRat.min.js')
 # mori = require('../jscache/mori.js')
 
+# dependencies
+# mori = mori
+# bigRat = bigRat
+window.H = emhHTML
+
 # row and column count of bipartite graph
 G = 12
 #bigRat = rational
@@ -52,16 +57,6 @@ MAT_TYPE = MAT_TYPES[2]
 #SAMPLE_TIME = 1000
 SAMPLE_COUNT = 20
 INNER_SAMPLE_COUNT = 1
-
-# unity skew mat 2 hood counts 1..16
-u2 = [2, 2, 5, 10, 17, 29, 51, 90, 158, 277, 486, 853, 1497, 2627, 4610, 8090]
-u2r = [1, 2.5, 2, 1.7, 1.705, 1.758, 1.764, 1.755, 1.753, 1.754, 1.755, 1.754, 1.754, 1.754, 1.754]
-u3 = [2, 2, 2, 6, 12, 20, 30, 46, 74, 122, 200, 324, 522, 842, 1362, 2206]
-u3r = [1, 1, 3, 2, 1.666, 1.5, 1.533, 1.608, 1.648, 1.639, 1.62, 1.611, 1.613, 1.617, 1.619]
-u4 = [2, 2, 2, 2, 7, 14, 23, 34, 47, 67, 101, 158, 249, 387, 592, 898]
-u4r = [1, 1, 1, 3.5, 2, 1.642, 1.478, 1.382, 1.425, 1.507, 1.564, 1.575, 1.554, 1.529, 1.516]
-u5 = [2, 2, 2, 2, 2, 8, 16, 26, 38, 52, 68, 92, 132, 198, 302, 458]
-u5r = [1, 1, 1, 1, 4, 2, 1.625, 1.461, 1.368, 1.307, 1.352, 1.434, 1.5, 1.525, 1.516]
 
 toType = (obj) ->
   ({}).toString.call(obj).match(/\s([a-zA-Z]+)/)[1].toLowerCase()
@@ -341,66 +336,6 @@ bigraph.transpose = (mat) ->
   for row,i in mat
     for x,j in row
       rmat[j][i] = mat[i][j]
-
-makeH = () ->
-  html = {}
-  tags =
-    ["script", "div", "span", "p", "ol", "ul", "li", "a", "dl", "dt", "dd",
-    "table", "th", "tr", "td", "colgroup", "col", "thead", "tbody",
-    "h1", "h2", "h3", "h4", "h5",
-    "label", "input", "button", "select", "option"]
-  makeTagDef = (tag) ->
-    html[tag] = (content, attrs = {}) ->
-      attrs.html = content
-      $("<" + tag + "/>", attrs)
-  makeTagDef(tag) for tag in tags
-  return html
-
-H = makeH()
-    
-H.mat2table = (mat) ->
-  tdf = (x, i, j) ->
-    td = H.td(x)
-    td.data('index', [i, j])
-    td
-  rowf = (row, i) -> H.tr([H.th(i + 1)].concat(tdf(x, i, j) for x, j in row))
-  rows = (rowf(row, i) for row, i in mat)
-  headers = H.tr([H.th()].concat((H.th(i) for i in [1..mat.cols])))
-  rows = [headers].concat(rows)
-  H.table(rows)
-
-H.show = (h...) ->
-  i.appendTo('#compute_results') for i in h
-
-H.section = (title, h...) ->
-  contentdiv = (H.div(h, {'class': 'content'}))
-  atitle = H.a(title, {href: '#', 'class': 'title'})
-  title.click () ->
-    $(".section .content").css("visibility", "hidden")
-    $(".title h1").css("font-size", "small")
-    contentdiv.css("visibility", "visible")
-    title.css("font-size", "large")
-  H.show(H.div([atitle, contentdiv], { 'class': 'section' }))
-  title.click
-  #title.click()
-
-H.u2table = (mat) ->
-  trow = (row) ->
-    r = (H.td(x) for x in row)
-    if row.from != undefined
-      [a,b] = row.from
-      r.push(H.td("[ from: [#{a}] [#{b}] ]"))
-    r
-  H.table(H.tr(trow(row)) for row in mat)
-
-H.u2list = (mat) ->
-  trow = (row) ->
-    r = (x for x in row)
-    if row.from != undefined
-      [a,b] = row.from
-      r.push(" [ from: [#{a}] [#{b}] ]")
-    r
-  H.ul(H.li(trow(row)) for row in mat)
 
 binUnion = (a,b) ->
   if mori.count(a) != mori.count(b)

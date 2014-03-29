@@ -15,7 +15,7 @@ $(document).ready ->
     $($(this).attr("href")).show()
     return
 
-  $("ul.tabs a")[3].click()
+  $("ul.tabs a")[0].click()
 
   graphvis = new force_view("#graphvis")
   updateGraphText graphvis.graph
