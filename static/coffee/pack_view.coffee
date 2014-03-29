@@ -34,11 +34,7 @@ window.pack_view = (containerid, graphvis) ->
             rightsplit
           ]
           id: nodeid
-
-        tree.getLeafNodes = ->
-          leaves = getLeafNodes(tree)
-          leaves
-
+          getLeafNodes: () -> getLeafNodes(tree)
         postproc tree
       else if nodes.length is 1
         node = nodes[0]
@@ -46,11 +42,7 @@ window.pack_view = (containerid, graphvis) ->
           name: "" + node.id
           size: 1
           id: node.id
-
-        tree.getLeafNodes = ->
-          leaves = getLeafNodes(tree)
-          leaves
-
+          getLeafNodes: () -> getLeafNodes(tree)
         postproc tree
       else
         {}
@@ -160,8 +152,9 @@ window.pack_view = (containerid, graphvis) ->
     treenodes.classed("treenode", true).classed("leaf", (d) ->
       not d.children
     ).call(node_drag).on("mouseover", (d) ->
-      ids = get_ids(d.getLeafNodes())
-      packvis_obj.markNodes ids
+      if d.children?
+        ids = get_ids(d.getLeafNodes())
+        packvis_obj.markNodes ids
       return
     ).on("mouseout", (d) ->
       packvis_obj.markNodes []
