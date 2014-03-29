@@ -20,7 +20,8 @@
     </select>
     <ul class="tabs">
         <li><a href="#graphvis">Graph</a></li>
-        <li><a href="#clustervis">Decomposition</a></li>
+        <li><a href="#clustervis">Decomposition Dendrogram</a></li>
+        <li><a href="#treevis">Decomposition Tree</a></li>
         <li><a href="#graphtext">Graph Text</a></li>
         <li><a href="#treetext">Decomposition Text</a></li>
     </ul>
@@ -39,38 +40,6 @@
 <script src="coffee/force_view.js"></script>
 <script src="coffee/pack_view.js"></script>
 <script src="coffee/cluster_view.js"></script>
-<script>
-    $ = jQuery;
-    $(document).ready(function() {
-        // tabs
-        $("ul.tabs a").click(function() {
-            $(".pane div").hide();
-            $($(this).attr("href")).show();
-        });
-        $("ul.tabs a")[3].click();
-
-        function updateGraphText(graph)
-        { 
-            var fg = formatGraph(graph); 
-            $("#graphtext textarea").val(fg);
-        };
-        function updateTreeText(graph)
-        { 
-            var fg = formatTree(graph); 
-            $("#treetext textarea").val(fg);
-        }
-
-        var graphvis = new force_view("#graphvis");
-        updateGraphText(graphvis.graph);
-        var packvis = new pack_view("#treevis", graphvis);
-        updateTreeText(packvis.state.root);
-        graphvis.redraw_callbacks.push(function() { packvis.redraw_pack(); });
-        graphvis.redraw_callbacks.push(function() { updateGraphText(graphvis.graph); });
-        packvis.markNodes = graphvis.markNodes;
-        var clusterobj = new cluster_view("#clustervis", packvis);
-    });
-</script>
-
+<script src="coffee/index.js"></script>
 </body>
-
 </html>
