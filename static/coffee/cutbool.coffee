@@ -31,9 +31,8 @@
 # [Adapting the Weighted Backtrack Estimator to Conflict Driven Search](http://www.inf.ucv.cl/~bcrawford/2009_1%20Papers%20Tesis/0805.pdf)
 #
 
-bigRat = require('../jscache/BigInt_BigRat.min.js')
-mori = require('../jscache/mori.js')
-#$ = require('../jscache/jquery.js')
+# bigRat = require('../jscache/BigInt_BigRat.min.js')
+# mori = require('../jscache/mori.js')
 
 # row and column count of bipartite graph
 G = 12
@@ -85,7 +84,9 @@ posthoodstat = (data) ->
     type: "POST"
     url: '/bigraph_stat'
     data: data
-    success: (data) -> console.log("post success:", data)
+    success: (data) ->
+      0
+      #console.log("post success:", data)
     dataType: 'text'
 
 
@@ -124,6 +125,21 @@ class Decomposition
     0
 
   trivialDecomposition: (graph) ->
+    computeHoods = (tree) ->
+      left = tree.leftnodes # indices
+      right = tree.rightnodes
+      right_revmap = {}
+      (right_revmap[graphi] = righti for graphi, righti in right)
+      #console.log("rr", right_revmap)
+      mat = ([0] for j in right for i in left)
+      for ri,i in left
+        for n in graph.nodes[ri].neighbors
+          j = right_revmap[n]
+          mat[i][j] = 1
+      #console.log(mat)
+      #console.log(row.join(",")) for row in mat
+      mat
+
     dc = (nodes) ->
       if nodes.length > 1
         mid = nodes.length / 2
@@ -134,20 +150,28 @@ class Decomposition
           rightnodes: right
           left: dc(left)
           right: dc(right)
+          state:
+            items: nodes
+        tree.children = [tree.left, tree.right]
+        tree.state.mat = computeHoods(tree)
+        sampler =
+          new Sampler
+            mat: tree.state.mat
+        tree.state.hoodcount = sampler.count(tree.state.mat)
+        tree
       else
         tree =
           item: nodes[0]
-    @tree = dc(graph.nodes)
+          leaf: true
+          state:
+            item: nodes[0]
+    #console.log(Object.keys(graph.nodes).length, graph.nodes)
+    nodes = Object.keys(graph.nodes)
+    @tree = dc(nodes)
 
-    computeHoods = (tree) ->
-      left = tree.leftnodes
-      right = tree.rightnodes
-      mat = [[] for i in left]
-      for lnode,ri in left
-        for rnode,cj in right
-          if lnode.neighbors.some((n) -> n == right[cj])
-            mat[ri][cj] == 1
+    console.log(@tree)
 
+    @tree
     
 
 class Node
@@ -693,6 +717,15 @@ class HTMLTree
       H.li(H.dl(dl))
       #H.li(H.span(tree.state.sample))
 
+  decompToHTML: (tree) ->
+    if tree.children?
+      pre = if tree.state? then @opts.innerfmt(tree) else ""
+      H.li([pre,H.ul((@decompToHTML(c) for c in tree.children))])
+    else if tree.leaf? and tree.leaf == true
+      dl = ([H.dt("#{k}"), H.dd("#{v}")] for k,v of tree.state).reduce((a, b) -> a.concat(b))
+      H.li(H.dl(dl))
+      #H.li(H.span(tree.state.sample))
+
 doFastUnions = (rm) ->
   timer = new Timer()
   state =
@@ -804,6 +837,28 @@ doFastUnions = (rm) ->
     matrix: (row for row in rm)
     hoodcount: hoodcount
 
+makeProcessGraph = (opts) ->
+  processGraph = (data) ->
+    graph = new Graph()
+    graph.parseDimacs(data)
+    dc = new Decomposition()
+    tree = dc.trivialDecomposition(graph)
+    htree = new HTMLTree({})
+    htmldecomp = htree.decompToHTML(tree)
+    console.log("htmldecomp", htmldecomp)
+    content = [htmldecomp]
+    title = H.h1("Decomposition of #{opts.fname}")
+    H.section(title, content...)
+
+doDecomposition = (rm) ->
+  sampler =
+    new Sampler
+      mat: rm
+  fname = "graphdata/graphLib_ours/hsugrid/hsu-4x4.dimacs"
+  processGraph =
+    makeProcessGraph
+      fname: fname
+  $.get(fname, "", processGraph)
 
 investigateHoodCounts = () ->
   cts = []
@@ -840,7 +895,7 @@ htmlInputs = (doCompute) ->
   H.div([fnamelabel, fnameselect]).appendTo('#inputs')
   inputs.boxes = H.table(H.tr([H.td(label), H.td(input)]) for [label, input] in inputs.boxes)
 
-  fnamelist = "/graphlist.json"
+  fnamelist = "/graphfiles.txt"
   showfnames = (data) ->
     lines = data.split('\n')
     bname = (fname) ->
@@ -852,10 +907,10 @@ htmlInputs = (doCompute) ->
     handler = (evt) ->
       f = (data) ->
         g = new Graph()
-        console.log("parsing graph file", fname)
+        #console.log("parsing graph file", fname)
         g.parseDimacs(data)
       fname = evt.currentTarget.value
-      console.log("retrieving graph file", fname)
+      #console.log("retrieving graph file", fname)
       $.get(fname, "", f)
     fnameselect.change(handler)
     fnameselect.val("graphdata/graphLib_ours/cycle/c5.dimacs")
@@ -897,6 +952,7 @@ doCompute = (inputs) ->
   g = bigraph.mat2list(rm)
   h = doUnions(rm)
   doFastUnions(rm)
+  doDecomposition(rm)
   rm
   #r.collapse({})
 
@@ -985,7 +1041,7 @@ class Sampler
     for row in @mat
       for x in row when x == 1
         p++
-    console.log("Probability", p, (@mat.cols * @mat.rows), p / (@mat.cols * @mat.rows))
+    #console.log("Probability", p, (@mat.cols * @mat.rows), p / (@mat.cols * @mat.rows))
     p /= (@mat.cols * @mat.rows)
     rndest = Math.round(mul*Math.log(@mat.rows)*Math.log(@mat.cols)/p)
 
@@ -1412,16 +1468,16 @@ consoletest = () ->
   create_mat = eval('bigraph.' + mat_type)
   rm = create_mat(rowct, colct)
   hoods = unions(rm)
-  console.log("hood count", mori.count(hoods))
+  #console.log("hood count", mori.count(hoods))
   rm
 
 if window?
   # browser
   inputs = htmlInputs(doCompute)
   doCompute(inputs)
-  console.log("I think uncaught type-errors from nvd3 can be ignored as long as graphs show up fine")
+  #console.log("I think uncaught type-errors from nvd3 can be ignored as long as graphs show up fine")
   #samplerStats()
 else
   # console testing
-  console.log("console testing")
+  #console.log("console testing")
   consoletest()
