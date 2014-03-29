@@ -1,4 +1,4 @@
-window.force_view = (containerid) ->
+window.force_view = (container) ->
   
   # mouse event vars
   
@@ -19,7 +19,7 @@ window.force_view = (containerid) ->
     if mvars.mousedown_node is mvars.selected_node
       mvars.selected_node = null
     else
-      mvars.selected_node = mousedown_node
+      mvars.selected_node = mvars.mousedown_node
     mvars.selected_link = null
     
     # reposition drag line
@@ -178,7 +178,8 @@ window.force_view = (containerid) ->
     dragfunction = undefined
     im = d3.select("#interaction_mode")
     value = im.property("value")
-    if value is "move"
+    #console.log("interaction mode optval", value)
+    if value == "move"
       dragfunction = force_layout.drag
     else
       dragfunction = node_drag
@@ -300,21 +301,43 @@ window.force_view = (containerid) ->
   jq = jQuery
   throw "needs jquery"  if jq is `undefined`
   force_obj = this
-  width = jq(containerid).width()
-  height = jq(containerid).height()
+  width = container.width()
+  height = container.height()
+  #console.log("wh", width, height)
   fill = d3.scale.category20()
 
-  mvars = {}
-  mvars.selected_node = null
-  mvars.selected_link = null
-  mvars.mousedown_link = null
-  mvars.mousedown_node = null
-  mvars.mouseup_node = null
-  mvars.node_target = null
+  mvars =
+    selected_node: null
+    selected_link: null
+    mousedown_link: null
+    mousedown_node: null
+    mouseup_node: null
+    node_target: null
 
-  outer = d3.select(containerid).attr("width", width + 5).attr("height", height + 5).append("svg:svg").attr("width", width).attr("height", height).attr("pointer-events", "all")
-  vis = outer.append("svg:g").call(d3.behavior.zoom().on("zoom", rescale)).on("dblclick.zoom", null).append("svg:g").on("mousemove", mousemove).on("mousedown", mousedown).on("mouseup", mouseup)
-  vis.append("svg:rect").attr("width", width).attr("height", height).attr "fill", "white"
+  outer = d3.select(container[0])
+    .attr("width", width + 5)
+    .attr("height", height + 5)
+    .append("svg:svg")
+    .attr("width", width)
+    .attr("height", height)
+    .attr("pointer-events", "all")
+
+  console.log(outer)
+
+  vis = outer.append("svg:g")
+    .call(d3.behavior.zoom()
+    .on("zoom", rescale))
+    .on("dblclick.zoom", null)
+    .append("svg:g")
+    .on("mousemove", mousemove)
+    .on("mousedown", mousedown)
+    .on("mouseup", mouseup)
+
+  vis
+    .append("svg:rect")
+    .attr("width", width)
+    .attr("height", height)
+    .attr "fill", "white"
 
   mvars.background = vis.node()
 

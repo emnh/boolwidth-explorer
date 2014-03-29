@@ -819,8 +819,6 @@ htmlInputs = (doCompute) ->
   button = (label) ->
     H.button(label, { 'type': 'button', 'value'})
   
-  fnameselect = H.select("", { id: "fnameselect" })
-  fnamelabel = H.label("Graph", { 'for': fnameselect })
   inputs.boxes = [
     textin("Columns", "columns", COLCT),
     textin("Rows", "rows", ROWCT),
@@ -828,36 +826,21 @@ htmlInputs = (doCompute) ->
     textin("Adjacency Matrix Type (TODO: combo)", "mat_type", MAT_TYPE.toString()),
     textin("Sample Count", "samplecount", SAMPLE_COUNT)
     ]
-  H.div([fnamelabel, fnameselect]).appendTo('#inputs')
+  fnamediv = getFileNameSelector("fnameselect")
+  fnamediv.appendTo('#inputs')
   inputs.boxes = H.table(H.tr([H.td(label), H.td(input)]) for [label, input] in inputs.boxes)
 
-  fnamelist = "/graphfiles.txt"
-  showfnames = (data) ->
-    lines = data.split('\n')
-    bname = (fname) ->
-      fname.split('/')[-1]
-    options = (H.option(line, { value: line }) for line in lines when line != '')
-    $(option).appendTo(fnameselect) for option in options
-
-    # setup select change handler
-    handler = (evt) ->
-      f = (data) ->
-        g = new Graph()
-        #console.log("parsing graph file", fname)
-        g.parseDimacs(data)
-      fname = evt.currentTarget.value
-      #console.log("retrieving graph file", fname)
-      $.get(fname, "", f)
-    fnameselect.change(handler)
-    fnameselect.val("graphdata/graphLib_ours/cycle/c5.dimacs")
-    fnameselect.trigger("change")
-
-  H.option("Generate", { value: "generate" }).appendTo(fnameselect)
-  $.ajax
-    url: fnamelist
-    data: ""
-    success: showfnames
-    dataType: "text"
+  # setup select change handler
+  handler = (evt) ->
+    f = (data) ->
+      g = new Graph()
+      g.parseDimacs(data)
+    fname = evt.currentTarget.value
+    $.get(fname, "", f)
+  fnameselect = fnamediv.find("select")
+  fnameselect.change(handler)
+  fnameselect.val("graphdata/graphLib_ours/cycle/c5.dimacs")
+  fnameselect.trigger("change")
 
   inputs.compute = button("Compute").click(() -> doCompute(inputs))
   

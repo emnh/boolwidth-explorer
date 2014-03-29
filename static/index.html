@@ -14,14 +14,10 @@
 	
 <div>
 <div id="menu">
-    <select id="interaction_mode">
-      <option value="edit">Edit</option>
-      <option value="move">Move</option>
-    </select>
     <ul class="tabs">
-        <li><a href="#graphvis">Graph</a></li>
+        <li><a href="#graphpane">Graph</a></li>
         <li><a href="#clustervis">Decomposition Dendrogram</a></li>
-        <li><a href="#treevis">Decomposition Tree</a></li>
+        <li><a href="#jstreevis">Decomposition Tree</a></li>
         <li><a href="#graphtext">Graph Text</a></li>
         <li><a href="#treetext">Decomposition Text</a></li>
         <li><a href="#debug">Debug</a></li>
@@ -29,9 +25,15 @@
 </div>
 <div id="split">
     <div class="pane">
-        <div class="chart" id="graphvis"></div>
+        <div class="chart" id="graphpane">
+          <select id="interaction_mode">
+            <option value="edit">Edit</option>
+            <option value="move">Move</option>
+          </select>
+          <div id="graphvis"></div>
+        </div>
         <div class="chart" id="clustervis"></div>
-        <div class="chart" id="treevis"></div>
+        <div class="chart" id="jstreevis"></div>
         <div class="chart" id="graphtext"><textarea disabled></textarea></div>
         <div class="chart" id="treetext"><textarea disabled></textarea></div>
         <div class="chart" id="debug"></div>
@@ -42,6 +44,8 @@
 <script src="coffee/force_view.js"></script>
 <script src="coffee/pack_view.js"></script>
 <script src="coffee/cluster_view.js"></script>
+<script src="coffee/html.js"></script>
+<script src="coffee/graphselect.js"></script>
 <script src="coffee/index.js"></script>
 </body>
 </html>

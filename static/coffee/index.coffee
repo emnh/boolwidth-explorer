@@ -1,4 +1,6 @@
 $ = jQuery
+H = emhHTML
+
 $(document).ready ->
   
   # tabs
@@ -11,27 +13,34 @@ $(document).ready ->
     $("#treetext textarea").val fg
     return
   $("ul.tabs a").click ->
-    $(".pane div").hide()
+    $(".pane > div").hide()
     $($(this).attr("href")).show()
     return
 
   $("ul.tabs a")[0].click()
 
-  graphvis = new force_view("#graphvis")
-  updateGraphText graphvis.graph
+  graphpane = $('#graphpane')
+  graphdiv = $('#graphvis')
+  gselect = getFileNameSelector('graphselect')
+  graphpane.prepend(gselect)
+  console.log("graphdiv", graphdiv)
 
-  packvis = new pack_view("#treevis", graphvis)
-  updateTreeText packvis.state.root
-
-  graphvis.redraw_callbacks.push ->
-    packvis.redraw_pack()
-    return
-
-  graphvis.redraw_callbacks.push ->
+  graphdiv.ready () ->
+    graphvis = new force_view(graphdiv)
     updateGraphText graphvis.graph
-    return
 
-  packvis.markNodes = graphvis.markNodes
-  clusterobj = new cluster_view("#clustervis", packvis)
-  return
+    packvis = new pack_view("#treevis", graphvis)
+    updateTreeText packvis.state.root
+
+    graphvis.redraw_callbacks.push ->
+      packvis.redraw_pack()
+      return
+
+    graphvis.redraw_callbacks.push ->
+      updateGraphText graphvis.graph
+      return
+
+    packvis.markNodes = graphvis.markNodes
+    clusterobj = new cluster_view("#clustervis", packvis)
+    return
 
