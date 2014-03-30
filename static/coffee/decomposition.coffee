@@ -34,7 +34,33 @@ class window.Decomposition
         0 # TODO: single element, 1 or 2 hoods
     dfs(tree)
 
-  # half and half
+  computeSample: (tree, graph, samplect) ->
+    dc = @
+    maxhoodct = 0
+    maxtree = undefined
+    processTree = (tree) ->
+      tree.state.mat = dc.getBipartiteMatrix(tree, graph)
+      sampler =
+        new Sampler
+          mat: tree.state.mat
+      results = sampler.getEstimate(samplect)
+      hoodct = results.estimate
+      tree.state.hoodestimate = hoodct
+      if hoodct > maxhoodct
+        maxhoodct = hoodct
+        maxtree = tree
+    dfs = (tree) ->
+      if tree.children?
+        processTree(tree)
+        (dfs(child) for child in tree.children)
+      else
+        0 # TODO: single element, 1 or 2 hoods
+    dfs(tree)
+    ret =
+      maxhoodct: maxhoodct
+      maxtree: maxtree
+
+  # split half and half
   trivialDecomposition: (graph) ->
     
     dc = (nodes) ->
@@ -65,4 +91,9 @@ class window.Decomposition
 
     @tree
     
-
+  sampleImprover: (graph) ->
+    tree = @trivialDecomposition(graph)
+    @computeSample(tree, graph, 20)
+    @computeExact(tree, graph)
+    tree
+    

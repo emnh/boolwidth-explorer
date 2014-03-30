@@ -75,7 +75,6 @@ class window.BiGraph
 class window.BiGraphGenerator
 
   constructor: (options) ->
-    console.log("opt", options)
     @rowct = options.rowct
     @colct = options.colct
     @options = options
