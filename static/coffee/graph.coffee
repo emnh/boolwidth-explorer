@@ -45,7 +45,7 @@ class window.Graph
     nodeseq = (name for name,node of @nodes)
     for name, i in nodeseq
       @noderev[name] = i
-    console.log(@noderev)
+    #console.log(@noderev)
 
 window.getSimpleGraph = (graph) ->
   simplenodes = {}

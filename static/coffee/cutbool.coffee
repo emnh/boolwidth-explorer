@@ -56,7 +56,6 @@ MAT_TYPES =
 MAT_TYPE = MAT_TYPES[2]
 #SAMPLE_TIME = 1000
 SAMPLE_COUNT = 20
-INNER_SAMPLE_COUNT = 1
 
 toType = (obj) ->
   ({}).toString.call(obj).match(/\s([a-zA-Z]+)/)[1].toLowerCase()
@@ -83,135 +82,6 @@ posthoodstat = (data) ->
       0
       #console.log("post success:", data)
     dataType: 'text'
-
-class Decomposition
-  
-  constructor: () ->
-    0
-
-  getBipartiteMatrix: (tree, graph) ->
-    left = tree.leftnodes # indices
-    right = tree.rightnodes
-    right_revmap = {}
-    (right_revmap[graphi] = righti for graphi, righti in right)
-    #console.log("rr", right_revmap)
-    mat = ([0] for j in right for i in left)
-    for ri,i in left
-      for n in graph.nodes[ri].neighbors
-        j = right_revmap[n]
-        mat[i][j] = 1
-    #console.log(mat)
-    #console.log(row.join(",")) for row in mat
-    mat
-
-  computeExact: (tree, graph) ->
-    dc = @
-    processTree = (tree) ->
-      tree.state.mat = dc.getBipartiteMatrix(tree, graph)
-      sampler =
-        new Sampler
-          mat: tree.state.mat
-      tree.state.hoodcount = sampler.count(tree.state.mat)
-    dfs = (tree) ->
-      if tree.children?
-        processTree(tree)
-        (dfs(child) for child in tree.children)
-      else
-        0 # TODO: single element, 1 or 2 hoods
-    dfs(tree)
-
-  # half and half
-  trivialDecomposition: (graph) ->
-    
-    dc = (nodes) ->
-      if nodes.length > 1
-        mid = nodes.length / 2
-        left = nodes.slice(0, mid)
-        right = nodes.slice(mid)
-        tree =
-          leftnodes: left
-          rightnodes: right
-          left: dc(left)
-          right: dc(right)
-          state:
-            items: nodes
-        tree.children = [tree.left, tree.right]
-        tree
-      else
-        tree =
-          item: nodes[0]
-          leaf: true
-          state:
-            item: nodes[0]
-    #console.log(Object.keys(graph.nodes).length, graph.nodes)
-    nodes = Object.keys(graph.nodes)
-    @tree = dc(nodes)
-
-    #console.log(@tree)
-
-    @tree
-    
-class BiGraph
-  constructor: () ->
-    @nodes = {}
-    @components = {}
-
-  addNode: (id) ->
-    if @nodes[id] == undefined
-      @nodes[id] = new Node()
-    @nodes[id]
-
-  dfs: (node, callback) ->
-    if callback(node)
-      return
-    @dfs(@nodes[neighbor], callback) for neighbor in node.neighbors
-
-  from_mat: (mat) ->
-    @mat = mat
-    @right_id = (i) -> mat.rows + i
-    @edges = []
-    @leftids = [0..mat.rows-1]
-    if @leftids.length != mat.rows
-      throw "bad"
-    @rightids = (@right_id(j) for j in [0..mat.cols-1])
-    if @rightids.length != mat.cols
-      throw "bad"
-    (@nodes[id] = new Node() for id in @leftids.concat(@rightids))
-    g = @
-    addMatEdge = (ri, cj) ->
-      if mat[ri][cj] == 1
-        cjid = g.rightids[cj]
-        g.edges.push([ri, cjid])
-        inode = g.nodes[ri]
-        jnode = g.nodes[cjid]
-        if jnode == undefined
-          throw "jnode #{cjid},#{cj}:#{g.rightids} is undefined"
-        inode.neighbors.push(cjid)
-        jnode.neighbors.push(ri)
-    addMatEdge(ri, cj) for col,cj in row for row,ri in mat
-        
-  @matcopy: () ->
-    newmat = ((x for x in row) for row in @mat)
-  
-  connectedComponents: () ->
-    # visit nodes
-    markct = 0
-    components = []
-    for nodei, node of @nodes
-      if node.marked < 0
-        markct += 1
-        callback =
-          do (markct) ->
-            (node) ->
-              ismarked = node.isMarked()
-              if not ismarked
-                node.mark(markct)
-                if components[markct] == undefined
-                  components[markct] = []
-                components[markct].push(node)
-              return ismarked
-        @dfs(node, callback)
-    @components = components
 
 class Timer
   timeit: (fn) ->
@@ -242,68 +112,6 @@ util.zip = () ->
   length = Math.min(lengthArray...)
   for i in [0...length]
     arr[i] for arr in arguments
-
-bigraph = {}
-
-bigraph.mat2list = (mat) ->
-  graph = {}
-  
-  vector = (x) -> mori.into(mori.vector(), x)
-  rowct = mat.rows
-  colct = mat.cols
-  graph.rows = vector(mori.repeat(rowct, mori.vector()))
-  graph.cols = vector(mori.repeat(colct, mori.vector()))
-  
-  for row, rowi in mat
-    for col, coli in row when mat[rowi][coli] == 1
-      graph.rows = mori.update_in(graph.rows, [rowi], (l) -> mori.conj(l, coli))
-      graph.cols = mori.update_in(graph.cols, [coli], (l) -> mori.conj(l, rowi))
-
-  graph
-
-
-bigraph.getmat = (corefn, rowct, colct) ->
-  row = () -> (corefn(i, j) for i in [1..colct])
-  rows = (row() for j in [1..rowct])
-  rows.rows = rowct
-  rows.cols = colct
-  rows
-  
-bigraph.rndmat = (rowct, colct) ->
-  corefn = (i, j) -> Math.floor(Math.random() < EDGE_PROB)
-  bigraph.getmat(corefn, rowct, colct)
-
-bigraph.unitymat = (rowct, colct) ->
-  corefn = (i, j) -> (if i == j then 1 else 0)
-  bigraph.getmat(corefn, rowct, colct)
-  
-bigraph.unityskewmat = (rowct, colct) ->
-  corefn = (i, j) -> (if i == j or i % colct == (j + 1) % colct or i % colct == (j + 2) % colct then 1 else 0)
-  bigraph.getmat(corefn, rowct, colct)
-  
-bigraph.unityskewmat_k = (k) ->
-  (rowct, colct) ->
-    corefn = (i, j) ->
-      if (1 for k_i in [0..(k-1)] when i % colct == (j + k_i) % colct).length > 0
-        1
-      else
-        0
-    bigraph.getmat(corefn, rowct, colct)
-
-bigraph.rndunitymat = (rowct, colct) ->
-  corefn = (i, j) -> (if i == j then 1 else 0) | Math.floor(Math.random() < EDGE_PROB)
-  bigraph.getmat(corefn, rowct, colct)
-
-bigraph.getDegrees = (mat) ->
-  addcol = (x, y) -> x + y
-  rowcmp = (a, b) -> mori.into_array(mori.map(addcol, a, b))
-  mori.reduce(rowcmp, mori.into_array(mat))
-
-bigraph.transpose = (mat) ->
-  rmat = ([] for x in mat[0])
-  for row,i in mat
-    for x,j in row
-      rmat[j][i] = mat[i][j]
 
 binUnion = (a,b) ->
   if mori.count(a) != mori.count(b)
@@ -471,9 +279,8 @@ class VisualGraph
     cells.on("mouseleave", mfl)
 
    
-doSetup = (rowct, colct, create_mat) ->
+doSetup = (rowct, colct, rm) ->
   [rows, cols] = [rowct, colct]
-  rm = create_mat(rows, cols)
   #rest = rest.filter((x) -> x > 0).reduce((x, y) -> 2 * (x - 1) /  * y)
   bigraph_table = H.mat2table(rm).addClass("bigraph_table")
   title = H.h1("Bipartite Graph / Matrix (#{rows}, #{cols})")
@@ -484,7 +291,7 @@ doSetup = (rowct, colct, create_mat) ->
     H.p("rows=#{rows}, cols=#{cols}")
     bigraph_table,
     H.div("Degrees")
-    H.table(H.tr(H.td(deg) for deg in bigraph.getDegrees(rm)))
+    H.table(H.tr(H.td(deg) for deg in BiGraph.getDegrees(rm)))
     jqsvg]
   H.section(title, content...)
   # display first section by default
@@ -735,8 +542,8 @@ doFastUnions = (rm) ->
   posthoodstat
     rows: rm.rows
     cols: rm.cols
-    rowDegrees: bigraph.getDegrees(rm)
-    colDegrees: bigraph.getDegrees(bigraph.transpose(rm))
+    rowDegrees: BiGraph.getDegrees(rm)
+    colDegrees: BiGraph.getDegrees(BiGraph.transpose(rm))
     matrix: (row for row in rm)
     hoodcount: hoodcount
 
@@ -770,6 +577,7 @@ investigateHoodCounts = () ->
   cts = []
   for g in [1..16]
     rowct = colct = g
+    # XXX: error, but method not in use
     rm = doSetup(rowct, colct, MAT_TYPE)
     h = doUnions(rm)
     cts.push(mori.count(h))
@@ -828,7 +636,7 @@ htmlInputs = (doCompute) ->
 doCompute = (inputs) ->
   colct = parseInt(inputs.getcolumns(), 10)
   rowct = parseInt(inputs.getrows(), 10)
-  EDGE_PROB = bigRat(inputs.getedgeprob())
+  edge_prob = bigRat(inputs.getedgeprob())
   samplect = inputs.getsamplecount()
   mat_type = inputs.getmat_type()
 
@@ -836,398 +644,20 @@ doCompute = (inputs) ->
   
   r = $("#compute_results")
   r.empty()
-  create_mat = eval('bigraph.' + mat_type)
-  rm = doSetup(rowct, colct, create_mat)
-  g = bigraph.mat2list(rm)
+  #console.log(BiGraph.unitymat)
+  options =
+    rowct: rowct
+    colct: colct
+    edge_prob: edge_prob
+  bggen = new BiGraphGenerator(options)
+  rm = bggen[mat_type]()
+  console.log("mat", rm)
+  doSetup(rowct, colct, rm)
   h = doUnions(rm)
   doFastUnions(rm)
   doDecomposition(rm)
   rm
   #r.collapse({})
-
-class SearchTree
-  constructor: (state) ->
-    if state
-      @debug = state.debug
-    else
-      @debug = false
-    @root = null # root of tree
-
-  addChild: (argstate, parent=null) ->
-    if @debug
-      console.log("st branch", argstate)
-    # used for breadth first search
-    node =
-      state: argstate
-      children: []
-    if parent == null
-      @root = node
-    else
-      parent.children.push(node)
-    node
-
-  addLeaf: (argstate, parent) ->
-    if @debug
-      console.log("st solution", argstate)
-    if parent == undefined # safety hatch
-      throw "parent must not be null for leaves"
-    #@pushThenBranch(argstate)
-    node = @addChild(argstate, parent)
-    node.leaf = true
-    delete node.children
-
-  getSolutions: () ->
-    solutions = []
-    proc = (tree) ->
-      if tree.children? and tree.children.length > 0
-        proc(c) for c in tree.children
-        if tree.leaf
-          throw "node should not be both leaf and parent"
-      else if tree.leaf? and tree.leaf == true
-        solutions.push(tree.state)
-    proc @root
-    solutions
-
-class Sampler
-
-  # TODO: estimate: let the selection order be free
-  # TODO: estimate idea, train neural network with count based on vertex degrees
-
-  constructor: (@state) ->
-    @mat = @state.mat
-    @hoods = []
-
-  isSubset: (pat) ->
-    (row for row in @mat when pat.every((e, i) -> e == '?' or row[i] <= e))
-  
-  isSubsetSum: (rows, pat) ->
-    atLeastOneOneInRows = (e, i) ->
-      if e == 1
-        rows.some((row) -> row[i] == 1)
-      else
-        true
-    pat.every(atLeastOneOneInRows)
-
-  isPartialHood: (pat) ->
-    rows = @isSubset(pat)
-    @isSubsetSum(rows, pat)
-
-  getRoughEstimate: (exact) ->
-    deg = bigraph.getDegrees(@mat)
-
-    a = (x for x in deg when x > 0)
-    a.sort((a,b) -> b - a)
-    b = (x for x in deg when x > 0)
-    b.sort((a,b) -> a - b)
-
-    f = (x, y) -> (1 + 1/y)*x
-    rest = a.reduce(f, 1)
-    rest2 = b.reduce(f, 1)
-
-    # Random Graph Estimate
-    mul = 6
-    p = 0
-    for row in @mat
-      for x in row when x == 1
-        p++
-    #console.log("Probability", p, (@mat.cols * @mat.rows), p / (@mat.cols * @mat.rows))
-    p /= (@mat.cols * @mat.rows)
-    rndest = Math.round(mul*Math.log(@mat.rows)*Math.log(@mat.cols)/p)
-
-    result =
-      deg0: a
-      deg1: b
-      acc: (estimate) -> Math.round(estimate / exact * 100) / 100
-      rest: Math.round(rest)
-      rest2: Math.round(rest2)
-      avgest: (rest + rest2) / 2
-      rndest: Math.round(rndest)
-      p: p
-    result
-
-  spliterate: () ->
-    # X = left
-    # Z = im(X)
-    # X = A U B
-    # |A U B| = |A| + |B| - |A ^ B| = |A - A^B| + |B - A ^ B| + |A ^ B|
-    # Z = im(A) U im(B)
-    # F = im(A) ^ im(B)
-    # |Z| = |im(A U B)| = |im(A)| * |im(B)| / |im(A ^ B)|
-    # |Z| = |im(A U B)| = |im(A - A ^ B)| * |im(B - A ^ B)| * |im(A ^ B)|
-    mat = @mat
-    graph = new BiGraph()
-    graph.from_mat(mat)
-
-    mid = mat.rows / 2
-    A = mat.slice(0, mid)
-    B = mat.slice(mid)
-    union = (r1, r2) ->
-      (r1[i] | r2[i] for x, i in r1)
-    intersect = (r1, r2) ->
-      (r1[i] & r2[i] for x, i in r1)
-
-    Ac = @count(A)
-    Bc = @count(B)
-    imA = A.reduce(union)
-    imB = B.reduce(union)
-    F = intersect(imA, imB)
-
-    rmat = ([] for x in mat[0])
-    for row,i in mat
-      for x,j in row
-        rmat[j][i] = mat[i][j]
-
-    imF = (rmat[i] for x,i in F when x == 1)
-    imFidx = (i for x,i in F when x == 1)
-
-    imAnoB = ([i, rmat[i]] for x,i in F when i < mid and x != 1)
-    imBnoA = ([i, rmat[i]] for x,i in F when i >= mid and x != 1)
-    # TODO: check for empty before calling iterate
-    imAnoBhoods = @iterate((x[1] for x in imAnoB))
-    imBnoAhoods = @iterate((x[1] for x in imBnoA))
-    imAnoBc = imAnoBhoods.count
-    imBnoAc = imBnoAhoods.count
-
-    hjoin = {}
-    samplect = 10 # O(n^2)
-    hoods1 = (h1 for {sample: h1} in imAnoBhoods.tree.getSolutions())
-    hoods2 = (h2 for {sample: h2} in imBnoAhoods.tree.getSolutions())
-    selectrandom = (ar) ->
-      num = Math.floor(Math.random() * ar.length)
-      ar[num]
-    hoods1sampleidx  = (selectrandom(hoods1) for i in [1..samplect])
-    hoods2sampleidx  = (selectrandom(hoods2) for i in [1..samplect])
-    for h1 in hoods1sampleidx
-      for h2 in hoods2sampleidx
-        do (h1, h2) ->
-          nhood = union(h1, h2)
-          hjoin[nhood] = 1
-    ratio = Object.keys(hjoin).length / (samplect * samplect)
-    
-    colorRow = (indices, color) ->
-      for i in indices
-        row = $(".bigraph_table tr:eq(#{i+1})")
-        row.css("background", color)
-    colorCol = (indices, color) ->
-      for i in indices
-        row = $(".bigraph_table td:nth-child(#{i+2})")
-        row.css("background", color)
-
-    #colorLine(F, 'tr', 'cyan')
-    colorCol(imFidx, 'magenta')
-    colorCol((i for [i, row] in imAnoB), 'cyan')
-    colorCol((i for [i, row] in imBnoA), 'pink')
-
-    imFc = @count(imF)
-    table = $('bigraph_table')
-    console.log("A", A, imA, Ac)
-    console.log("B", B, imB, Bc)
-    console.log("AnoB", imAnoB, imAnoBc)
-    console.log("BnoA", imBnoA, imBnoAc)
-    console.log("F", F, imFc)
-    console.log("imF", imF, imFc)
-    console.log("upper", Ac * Bc, Ac * Bc / imFc)
-    console.log("lower", imAnoBc * imBnoAc, imAnoBc * imBnoAc * imFc)
-    console.log("avg", Math.pow(Math.E, (Math.log(Ac * Bc) + Math.log(imAnoBc * imBnoAc)) / 2))
-    console.log("length check", mat.cols, imAnoB.length + imBnoA.length + imF.length)
-    console.log("hjoin", Object.keys(hjoin).length, ratio, Ac * Bc * ratio)
-    state = {}
-    state.A = A
-    state.B = B
-
-    #groups = []
-    #group = []
-    #overlap = (group, pat) ->
-    #  (row for row in group when pat.every((e, i) -> e == '?' or row[i] < e))
-    #for row,i in mat
-    #  if not(overlap(group,row))
-    #    group.push(row)
-    #  else
-    #    groups.push(group)
-    #    group = []
-
-  count: (mat) ->
-    if mat.length > 0
-      s = new Sampler
-            mat: mat
-      s.iterate().count
-    else
-      1
-
-  iterate: () ->
-    st = new SearchTree()
-    solct =  0
-    @itersub = (state) ->
-      parent = st.addChild(state, state.tree)
-      if state.sample.length >= @mat[0].length
-        solct++
-        st.addLeaf({ sample: state.sample }, parent)
-      else
-        zeroct = @isPartialHood(state.sample.concat([0]))
-        onect = @isPartialHood(state.sample.concat([1]))
-        switch (onect + zeroct)
-          when 0
-            solct++
-            st.addLeaf({ sample: state.sample }, parent)
-          when 1
-            nextval = if onect > 0 then 1 else 0
-            @itersub
-              sample: state.sample.concat([nextval])
-              tree: parent
-          when 2
-            @itersub
-              sample: state.sample.concat([0])
-              tree: parent
-            @itersub
-              sample: state.sample.concat([1])
-              tree: parent
-    
-    #cc = @connectedComponents(@mat)
-    state =
-      sample: []
-      tree: null
-    st.addChild state
-    @itersub state
-    result =
-      count: solct
-      tree: st
-
-  getQPosSample: (sample, prob) ->
-    qpos = (i for x,i in sample when x == '?')
-    qcount = qpos.length
-    if qcount == 0 # @mat[0].length
-      return prob
-    else
-      # select nth question mark as new position
-      newposrand = Math.floor(Math.random() * qcount)
-      newposition = qpos[newposrand]
-      getnext = (val) ->
-        newsample = ((if i == newposition   then val else x) for x,i in sample)
-        newsample
-      vals =
-        for val in [0, 1]
-          ispartial = @isPartialHood(getnext(val))
-          ispartial
-      prob = switch (vals[0] + vals[1])
-        when 0
-          prob
-        when 1
-          nextval = if vals[1] > 0 then 1 else 0
-          prob = @getQPosSample(getnext(nextval), prob)
-        when 2
-          rand = Math.floor(Math.random()*2)
-          prob = @getQPosSample(getnext(rand), prob*0.5)
-      return prob
-
-  getSamplesBranch: (args) ->
-    state = args.state
-    switch (args.childcount)
-      when 0
-        # shouldn't happen, because sample length would exceed row length in earlier check
-        loopvars.done = args.solution(state)
-      when 1
-        nextval = if args.onect > 0 then 1 else 0
-        args.branch
-          sample: state.sample.concat([nextval])
-          prob: state.prob
-          estimate: state.estimate
-          depth: state.depth + 1
-          parentNode: state.node
-      when 2
-        rand = Math.floor(Math.random()*2)
-        newprob = state.prob * 0.5
-        if state.depth < args.loopvars.maxdepth
-          estimate = state.estimate
-        else
-          estimate = state.estimate * 2 # assumes same type
-        args.branch
-          sample: state.sample.concat([rand])
-          prob: newprob
-          estimate: estimate
-          depth: state.depth + 1
-          parentNode: state.node
-        if state.depth < args.loopvars.maxdepth
-          opposite = rand ^ 1
-          args.branch
-            sample: state.sample.concat([opposite])
-            prob: newprob
-            estimate: estimate
-            depth: state.depth + 1
-            parentNode: state.node
-          args.loopvars.branchct++
-
-
-  getSamples: (in_sample, in_prob, samplect=INNER_SAMPLE_COUNT) ->
-    stack = []
-    samples = []
-    branchPoints = []
-    st = new SearchTree()
-    branch = (argstate) ->
-      argstate.node = st.addChild(argstate, argstate.parentNode)
-      stack.push(argstate)
-    solution = (argstate) ->
-      st.addLeaf(argstate, argstate.parentNode)
-      samples.push
-        sample: argstate.sample
-        estimate: argstate.estimate
-      samplect--
-      return samplect <= 0
-
-    branch
-      sample: in_sample
-      prob: in_prob
-      estimate: 1
-      depth: 0
-      parentNode: null
-    loopvars =
-      done: false
-      ct: 0
-      branchct: 0
-      maxdepth: Math.ceil(Math.log(samplect) / Math.log(2))
-    while stack.length > 0 and not loopvars.done
-      state = stack.pop()
-      loopvars.ct++
-      zeroct = @isPartialHood(state.sample.concat([0]))
-      onect = @isPartialHood(state.sample.concat([1]))
-      if state.sample.length >= @mat[0].length
-        loopvars.done = solution(state)
-      else
-        @getSamplesBranch
-          state: state
-          branch: branch
-          childcount: zeroct + onect
-          onect: onect
-          solution: solution
-          loopvars: loopvars
-    ret =
-      searchtree: st
-      samples: samples
-      estimate: sum(x.estimate for x in samples)
-
-  average = (samples) ->
-    samples.reduce((x, y) -> x + y) / samples.length
-
-  sum = (samples) ->
-    samples.reduce((x, y) -> x + y)
-
-  getAbstractEstimate: (samplect, getSampleM) ->
-    samples = (getSampleM() for i in [1..samplect])
-    average(samples)
-
-  getEstimate: (samplect) ->
-    results = (@getSamples([], 1) for i in [1..samplect])
-    ret =
-      estimate: average(r.estimate for r in results)
-      results: results
-      samples: r.estimate for r in results
-  
-  getQPosEstimate: (samplect) ->
-    initsample = ('?' for x in [1..@mat[0].length])
-    samples = (1 / @getQPosSample(initsample, 1) for i in [1..samplect])
-    ret =
-      estimate: average(samples) # r.estimate for r in results)
-      results: samples
-      samples: samples
 
 samplerStats = () ->
   sets = []
@@ -1252,7 +682,7 @@ samplerStats = () ->
           colct = set.colct
           #samplect = (maxrowct + maxcolct)
           EDGE_PROB = bigRat(set.edge_prob)
-          rm = eval('bigraph.' + set.mat_type)
+          rm = BiGraph[set.mat_type]
           rm = rm(rowct, colct)
           #rm = doSetup(rowct, colct, mat_type)
           #
@@ -1354,7 +784,7 @@ consoletest = () ->
   samplect = SAMPLE_COUNT
   mat_type = MAT_TYPE
 
-  create_mat = eval('bigraph.' + mat_type)
+  create_mat = BiGraph[mat_type]
   rm = create_mat(rowct, colct)
   hoods = unions(rm)
   #console.log("hood count", mori.count(hoods))
