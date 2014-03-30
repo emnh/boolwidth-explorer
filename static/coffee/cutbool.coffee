@@ -83,17 +83,6 @@ posthoodstat = (data) ->
       #console.log("post success:", data)
     dataType: 'text'
 
-class Timer
-  timeit: (fn) ->
-    before = (new Date()).getTime()
-    ret = fn()
-    after = (new Date()).getTime()
-    @elapsed = after - before
-    ret
-
-  time: () ->
-    (new Date).getTime()
-
 util = {}
 
 util.mergedicts = (obj1, obj2) ->
@@ -432,8 +421,8 @@ class HTMLTree
       pre = if tree.state? then @opts.innerfmt(tree) else ""
       H.li([pre,H.ul((@decompToHTML(c) for c in tree.children))])
     else if tree.leaf? and tree.leaf == true
-      dl = ([H.dt("#{k}"), H.dd("#{v}")] for k,v of tree.state).reduce((a, b) -> a.concat(b))
-      H.li(H.dl(dl))
+      dl = ([H.li("#{k}: #{v}")] for k,v of tree.state).reduce((a, b) -> a.concat(b))
+      H.li(H.ul(dl))
       #H.li(H.span(tree.state.sample))
 
 doFastUnions = (rm) ->
@@ -558,8 +547,10 @@ makeProcessGraph = (opts) ->
     console.log("computing exact")
     htree = new HTMLTree({})
     htmldecomp = htree.decompToHTML(tree)
+    htree = H.div(H.ul(htmldecomp), {class: 'decomp'})
+    htree.ready(() -> $(htree).jstree())
     #console.log("htmldecomp", htmldecomp)
-    content = [htmldecomp]
+    content = [htree]
     title = H.h1("Decomposition of #{opts.fname}")
     H.section(title, content...)
 

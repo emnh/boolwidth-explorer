@@ -43,9 +43,11 @@ class window.Decomposition
       sampler =
         new Sampler
           mat: tree.state.mat
-      results = sampler.getEstimate(samplect)
+      timer = new Timer()
+      results = timer.timeit(() -> sampler.getEstimate(samplect))
       hoodct = results.estimate
       tree.state.hoodestimate = hoodct
+      tree.state.time = timer.elapsed
       if hoodct > maxhoodct
         maxhoodct = hoodct
         maxtree = tree
