@@ -14,6 +14,7 @@ makeH = () ->
 
 window.emhHTML = makeH()
     
+# TODO: replace H with emhHTML in following
 emhHTML.mat2table = (mat) ->
   tdf = (x, i, j) ->
     td = H.td(x)
