@@ -672,11 +672,12 @@ samplerStats = () ->
           rowct = set.rowct
           colct = set.colct
           #samplect = (maxrowct + maxcolct)
-          EDGE_PROB = bigRat(set.edge_prob)
-          rm = BiGraph[set.mat_type]
-          rm = rm(rowct, colct)
-          #rm = doSetup(rowct, colct, mat_type)
-          #
+          bigen =
+            new BiGraphGenerator
+              rowct: rowct
+              colct: colct
+              edge_prob: bigRat(set.edge_prob)
+          rm = bigen[set.mat_type]()
           sampler = new Sampler({mat: rm})
 
           result = timer.timeit(() -> sampler.iterate())
@@ -786,7 +787,7 @@ if window?
   inputs = htmlInputs(doCompute)
   doCompute(inputs)
   #console.log("I think uncaught type-errors from nvd3 can be ignored as long as graphs show up fine")
-  #samplerStats()
+  samplerStats()
 else
   # console testing
   #console.log("console testing")
