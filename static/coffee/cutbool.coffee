@@ -417,13 +417,29 @@ class HTMLTree
       #H.li(H.span(tree.state.sample))
 
   decompToHTML: (tree) ->
+    showprops = ['hoodestimate', 'time', 'hoodcount']
+    innerfmt = (tree) ->
+      s = ("#{k}:#{tree.state[k]}" for k in showprops).join(",")
+      if tree.leaf
+        s += " leaf"
+      s
     if tree.children?
-      pre = if tree.state? then @opts.innerfmt(tree) else ""
-      H.li([pre,H.ul((@decompToHTML(c) for c in tree.children))])
+      pre = if tree.state? then innerfmt(tree) else ""
+      ret = H.li([pre,H.ul((@decompToHTML(c) for c in tree.children))])
     else if tree.leaf? and tree.leaf == true
-      dl = ([H.li("#{k}: #{v}")] for k,v of tree.state).reduce((a, b) -> a.concat(b))
-      H.li(H.ul(dl))
+      #dl = ([H.li("#{k}: #{v}")] for k,v of tree.state).reduce((a, b) -> a.concat(b))
+      #dl = ([H.li("#{k}: #{v}")] for k,v of tree.state).reduce((a, b) -> a.concat(b))
+      ret = H.li(tree.state.item)
       #H.li(H.span(tree.state.sample))
+    ret.attr("data-treeid", tree.state.id)
+    ret
+
+  decompToMap: (tree) ->
+    nodemap = {}
+    flat = tree.flatten()
+    for node in flat
+      nodemap[node.state.id] = node
+    nodemap
 
 doFastUnions = (rm) ->
   timer = new Timer()
@@ -547,10 +563,30 @@ makeProcessGraph = (opts) ->
     console.log("computing exact")
     htree = new HTMLTree({})
     htmldecomp = htree.decompToHTML(tree)
+    nodemap = htree.decompToMap(tree)
     htree = H.div(H.ul(htmldecomp), {class: 'decomp'})
-    htree.ready(() -> $(htree).jstree())
     #console.log("htmldecomp", htmldecomp)
-    content = [htree]
+    nodeinfo = H.div("nodeinfo", { class: "nodeinfo" })
+    showinfo = (tree) ->
+      nodeinfo.empty()
+      showvalue = (k, v) ->
+        if k == 'mat'
+          [H.dt("#{k}"), H.dd(H.mat2table(v))]
+        else
+          [H.dt("#{k}"), H.dd("#{v}")]
+      dl = (showvalue(k, v) for k,v of tree.state).reduce((a, b) -> a.concat(b))
+      dl = H.dl(dl)
+      dl.appendTo(nodeinfo)
+    htree.ready () ->
+      jstree = $(htree).jstree()
+      selectnode = (e, data) ->
+        htmlid = data.selected[0]
+        htmlnode = jstree.find('#' + htmlid)
+        treeid = htmlnode.attr("data-treeid")
+        treenode = nodemap[treeid]
+        showinfo(treenode)
+      $(htree).on("select_node.jstree", selectnode)
+    content = [htree, nodeinfo]
     title = H.h1("Decomposition of #{opts.fname}")
     H.section(title, content...)
 
@@ -787,7 +823,7 @@ if window?
   inputs = htmlInputs(doCompute)
   doCompute(inputs)
   #console.log("I think uncaught type-errors from nvd3 can be ignored as long as graphs show up fine")
-  samplerStats()
+  #samplerStats()
 else
   # console testing
   #console.log("console testing")

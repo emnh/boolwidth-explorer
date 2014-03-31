@@ -1,3 +1,16 @@
+class window.Tree
+  constructor: (options) ->
+    @[key] = value for key, value of options
+
+  flatten: () ->
+    nodes = []
+    dfs = (tree) ->
+      nodes.push(tree)
+      if tree.children?
+        (dfs(child) for child in tree.children)
+    dfs(@)
+    nodes
+
 class window.Decomposition
   
   constructor: () ->
@@ -65,31 +78,34 @@ class window.Decomposition
   # split half and half
   trivialDecomposition: (graph) ->
     
+    maxid = 0
     dc = (nodes) ->
       if nodes.length > 1
         mid = nodes.length / 2
         left = nodes.slice(0, mid)
         right = nodes.slice(mid)
         tree =
-          leftnodes: left
-          rightnodes: right
-          left: dc(left)
-          right: dc(right)
-          state:
-            items: nodes
+          new Tree
+            leftnodes: left
+            rightnodes: right
+            left: dc(left)
+            right: dc(right)
+            state:
+              id: maxid++
+              items: nodes
         tree.children = [tree.left, tree.right]
         tree
       else
         tree =
-          item: nodes[0]
-          leaf: true
-          state:
+          new Tree
             item: nodes[0]
+            leaf: true
+            state:
+              id: maxid++
+              item: nodes[0]
     #console.log(Object.keys(graph.nodes).length, graph.nodes)
     nodes = Object.keys(graph.nodes)
     @tree = dc(nodes)
-
-    #console.log(@tree)
 
     @tree
     
