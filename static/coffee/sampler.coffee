@@ -201,7 +201,7 @@ class window.Sampler
     #    groups.push(group)
     #    group = []
 
-  count: (mat) ->
+  @count: (mat) ->
     if mat.length > 0
       s = new Sampler
             mat: mat

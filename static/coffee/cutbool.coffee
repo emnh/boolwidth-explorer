@@ -558,9 +558,9 @@ makeProcessGraph = (opts) ->
     graph.parseDimacs(data)
     dc = new Decomposition()
     #tree = dc.trivialDecomposition(graph)
+    #console.log("computing exact")
     #dc.computeExact(tree, graph)
     tree = dc.sampleImprover(graph)
-    console.log("computing exact")
     htree = new HTMLTree({})
     htmldecomp = htree.decompToHTML(tree)
     nodemap = htree.decompToMap(tree)
@@ -595,7 +595,12 @@ doDecomposition = (rm) ->
     new Sampler
       mat: rm
   #fname = "graphdata/graphLib_ours/hsugrid/hsu-4x4.dimacs"
-  fname = "graphdata/graphLib/coloring/queen5_5.dgf"
+  # fname = "graphdata/graphLib/coloring/queen8_8.dgf"
+  #fname = "graphdata/graphLib/protein/1aac_graph.dimacs"
+  #fname = "graphdata/graphLib/coloring/anna.dgf"
+  fname = "graphdata/graphLib/coloring/jean.dgf"
+  #fname = "graphdata/graphLib_ours/cycle/c5.dimacs"
+  #fname = "graphdata/graphLib/other/sodoku.dgf"
   processGraph =
     makeProcessGraph
       fname: fname
