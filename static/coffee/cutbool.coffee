@@ -42,7 +42,7 @@ window.H = emhHTML
 # row and column count of bipartite graph
 G = 12
 #bigRat = rational
-EDGE_PROB = bigRat(1, 2)
+EDGE_PROB = bigRat(1, 12)
 ROWCT = G
 COLCT = G
 MAX_DISPLAY_HOODS = 100 # maximum hoods to output to HTML
@@ -82,25 +82,6 @@ posthoodstat = (data) ->
       0
       #console.log("post success:", data)
     dataType: 'text'
-
-util = {}
-
-util.mergedicts = (obj1, obj2) ->
-  for attrname of obj2
-    obj1[attrname] = obj2[attrname]
-
-util.getmergedicts = (objs...) ->
-  newdict = {}
-  for obj in objs
-    for attrname of obj
-      newdict[attrname] = obj[attrname]
-  return newdict
-    
-util.zip = () ->
-  lengthArray = (arr.length for arr in arguments)
-  length = Math.min(lengthArray...)
-  for i in [0...length]
-    arr[i] for arr in arguments
 
 binUnion = (a,b) ->
   if mori.count(a) != mori.count(b)
@@ -488,7 +469,11 @@ doFastUnions = (rm) ->
   H.section(title, content...)
 
   # Run first sampler
-  results = timer.timeit(() -> sampler.getEstimate(samplect))
+  sampler =
+    new Sampler
+      mat: rm
+      inner_samplect: samplect / 2
+  results = timer.timeit(() -> sampler.getEstimate(samplect / 2))
   estimate = results.estimate
   sample_elapsed = timer.elapsed
   acc = Math.round(estimate / hoodcount * 100) / 100
@@ -511,6 +496,7 @@ doFastUnions = (rm) ->
    $(".searchtree")
      .jstree()
      .on("loaded", () -> htree "open_all")
+  #console.log("samples", results.samples)
 
   # Run second sampler
   sampler2 = new Sampler(state)
@@ -524,13 +510,25 @@ doFastUnions = (rm) ->
   title = H.h1("STree QPos Estimate (#{sampleinfo})")
   H.section(title, "")
 
-  # Output average sampler
-  elapsed = sample_elapsed + sample_elapsed2
-  estimate = Math.round((estimate + estimate2) / 2)
-  acc = Math.round(estimate / hoodcount * 100) / 100
-  sampleinfo = "t=#{elapsed}ms, N=#{samplect*2}, count=#{estimate}, acc=#{acc}"
-  title = H.h1("Average Estimate (#{sampleinfo})")
+  # Run second sampler
+  sampler3 = new BitSampler(state)
+  results3 = timer.timeit(() -> sampler3.getEstimate(samplect))
+  estimate3 = results3.estimate
+
+  # Output third sampler, TODO: tree?
+  sample_elapsed3 = timer.elapsed
+  acc3 = Math.round(estimate3 / hoodcount * 100) / 100
+  sampleinfo = "t=#{sample_elapsed3}ms, N=#{samplect}, count=#{Math.round(estimate3)}, acc=#{acc3}"
+  title = H.h1("STree Bit Estimate (#{sampleinfo})")
   H.section(title, "")
+
+  # Output average sampler
+  #elapsed = sample_elapsed + sample_elapsed2
+  #estimate = Math.round((estimate + estimate2) / 2)
+  #acc = Math.round(estimate / hoodcount * 100) / 100
+  #sampleinfo = "t=#{elapsed}ms, N=#{samplect*2}, count=#{estimate}, acc=#{acc}"
+  #title = H.h1("Average Estimate (#{sampleinfo})")
+  #H.section(title, "")
 
   # Chart
   chart = $("<div id='chart0'><svg style='height: 500px; width: 800px;'/></div>")
@@ -605,6 +603,15 @@ doDecomposition = (rm) ->
     makeProcessGraph
       fname: fname
   $.get(fname, "", processGraph)
+
+doFastDecomposition = (rm) ->
+  samplect = SAMPLE_COUNT
+  sampler =
+    new BitSampler
+      mat: rm
+  avg = sampler.getEstimate(20)
+  #console.log(avg.samples)
+  #console.log("est", avg.estimate)
 
 investigateHoodCounts = () ->
   cts = []
@@ -687,7 +694,8 @@ doCompute = (inputs) ->
   doSetup(rowct, colct, rm)
   h = doUnions(rm)
   doFastUnions(rm)
-  doDecomposition(rm)
+  #doDecomposition(rm)
+  doFastDecomposition(rm)
   rm
   #r.collapse({})
 
@@ -698,9 +706,10 @@ samplerStats = () ->
   mincolct = 8
   maxrowct = 16
   maxcolct = 16
-  samplect = 30 #inputs.getsamplecount()
+  samplect = 10 #inputs.getsamplecount()
+  inner_samplect = 10
   timer = new Timer()
-  for edge_prob in [0.5]
+  for edge_prob in [bigRat(1,2)]
     for i in [mincolct..maxcolct]
       mat[i] = []
       for j in [minrowct..maxrowct]
@@ -719,7 +728,10 @@ samplerStats = () ->
               colct: colct
               edge_prob: bigRat(set.edge_prob)
           rm = bigen[set.mat_type]()
-          sampler = new Sampler({mat: rm})
+          sampler =
+            new Sampler
+              mat: rm
+              inner_samplect: inner_samplect
 
           result = timer.timeit(() -> sampler.iterate())
           tree = result.tree
@@ -730,7 +742,7 @@ samplerStats = () ->
           estimate = Math.round(results.estimate)
           elapsed_samples = timer.elapsed
           acc = Math.round(estimate / count * 100)
-          timeratio = Math.round(elapsed_samples / elapsed_hoods * 100)
+          timeratio = Math.round(elapsed_samples / elapsed_hoods * 100) / 100
           mat[i][j] =
             count: count
             estimate: estimate

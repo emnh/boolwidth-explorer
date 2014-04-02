@@ -150,13 +150,13 @@ class window.Decomposition
       console.log("returning same")
       [boxA, boxB]
 
+  #findGoodCutGreedy: (graph) ->
   findGoodTriCut: (graph) ->
+    # greedy initial placement
     samplect = 30
     nodes =  Object.keys(graph.nodes)
     console.log(nodes)
     boxes = [[],[],[]]
-    max = (ar) -> ar.reduce((a, b) -> Math.max(a, b))
-    min = (ar) -> ar.reduce((a, b) -> Math.min(a, b))
     oldhoodcounts = [1, 1, 1]
     for node,k in nodes
       #console.log(("#{x.length}: " + x.join(",") for x in boxes))
@@ -215,6 +215,6 @@ class window.Decomposition
   sampleImprover: (graph) ->
     @findGoodTriCut(graph)
     tree = @trivialDecomposition(graph)
-    @computeSample(tree, graph, 40)
+    #@computeSample(tree, graph, 40)
     #@computeExact(tree, graph)
     tree

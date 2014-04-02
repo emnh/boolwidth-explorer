@@ -1,7 +1,5 @@
 (function() {
-  var BitSet;
-
-  BitSet = (function() {
+  window.BitSet = (function() {
 
     function BitSet() {
       this.bitsPerWord = 32;

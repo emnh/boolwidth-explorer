@@ -1,4 +1,4 @@
-INNER_SAMPLE_COUNT = 1
+INNER_SAMPLE_COUNT = 100
 
 class window.SearchTree
   constructor: (state) ->
@@ -312,7 +312,11 @@ class window.Sampler
           args.loopvars.branchct++
 
 
-  getSamples: (in_sample, in_prob, samplect=INNER_SAMPLE_COUNT) ->
+  getSamples: (in_sample, in_prob) ->
+    if @state.inner_samplect?
+      samplect = @state.inner_samplect
+    else
+      throw "missing inner samplect"
     stack = []
     samples = []
     branchPoints = []
@@ -357,22 +361,16 @@ class window.Sampler
     ret =
       searchtree: st
       samples: samples
-      estimate: sum(x.estimate for x in samples)
-
-  average = (samples) ->
-    samples.reduce((x, y) -> x + y) / samples.length
-
-  sum = (samples) ->
-    samples.reduce((x, y) -> x + y)
+      estimate: util.sum(x.estimate for x in samples)
 
   getAbstractEstimate: (samplect, getSampleM) ->
     samples = (getSampleM() for i in [1..samplect])
-    average(samples)
+    util.average(samples)
 
   getEstimate: (samplect) ->
     results = (@getSamples([], 1) for i in [1..samplect])
     ret =
-      estimate: average(r.estimate for r in results)
+      estimate: util.average(r.estimate for r in results)
       results: results
       samples: r.estimate for r in results
   
@@ -380,7 +378,7 @@ class window.Sampler
     initsample = ('?' for x in [1..@mat[0].length])
     samples = (1 / @getQPosSample(initsample, 1) for i in [1..samplect])
     ret =
-      estimate: average(samples) # r.estimate for r in results)
+      estimate: util.average(samples) # r.estimate for r in results)
       results: samples
       samples: samples
 

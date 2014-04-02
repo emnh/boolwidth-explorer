@@ -49,7 +49,8 @@ app.post "/bigraph_stat", (request, response) ->
   data.name = name
   matrix = data.matrix
   hoodcount = data.hoodcount
-  return "disabled"
+  response.send
+    message: "disabled"
   node =
     db.createNode
       cols: data.cols
