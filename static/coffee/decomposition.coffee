@@ -128,7 +128,8 @@ class window.Decomposition
     sampler =
       new Sampler
         mat: mat
-    results = sampler.getEstimate(samplect)
+        inner_samplect: samplect
+    results = sampler.getEstimate(1)
     Math.round(results.estimate)
 
   swap: (graph, boxA, boxB, maxval, samplect) ->
@@ -164,15 +165,17 @@ class window.Decomposition
       B = boxes[1].concat(node)
       C = boxes[2].concat(node)
       cuts = (@getBipartiteMatrix(x, graph) for x in [A, B, C])
-      #hoodcounts = (@getSampleCutBool(mat, samplect) for mat in cuts)
-      hoodcounts = (Sampler.count(mat) for mat in cuts)
-      newmaxhoodcount = max(hoodcounts)
+      hoodcounts = (@getSampleCutBool(mat, samplect) for mat in cuts)
+      real_hoodcounts = []
+      #if k == nodes.length - 1 # expensive, do on last one for comparison
+      #  real_hoodcounts = (Sampler.count(mat) for mat in cuts)
+      newmaxhoodcount = util.max(hoodcounts)
       newmaxcounts = [
-        max(oldhoodcounts.concat().splice(0, 1, hoodcounts[0]))
-        max(oldhoodcounts.concat().splice(1, 1, hoodcounts[1]))
-        #max(oldhoodcounts.concat().splice(2, 1, hoodcounts[2]))
+        util.max(oldhoodcounts.concat().splice(0, 1, hoodcounts[0]))
+        util.max(oldhoodcounts.concat().splice(1, 1, hoodcounts[1]))
+        util.max(oldhoodcounts.concat().splice(2, 1, hoodcounts[2]))
       ]
-      nextgenmin = min(newmaxcounts)
+      nextgenmin = util.min(newmaxcounts)
       next = (i for i in [0..1] when newmaxcounts[i] <= nextgenmin)
       if next.length > 0
         next = next[0]
@@ -182,7 +185,8 @@ class window.Decomposition
       boxes[next] = boxes[next].concat(node)
       oldhoodcounts = hoodcounts
       console.log("log", (Math.round(Math.log(x) * 100 / Math.log(2)) / 100 for x in hoodcounts))
-      console.log("hoods", hoodcounts)
+      console.log("samplehoods", hoodcounts)
+      console.log("realhoods", real_hoodcounts)
       console.log(Math.round((k + 1) * 100 / nodes.length) + "%")
     
     #console.log("computing exact")

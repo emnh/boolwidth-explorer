@@ -43,6 +43,12 @@ class window.SearchTree
     proc @root
     solutions
 
+#class window.ProgressiveSampler
+
+#  constructor: (@state) ->
+#    @mat = @state.mat
+
+
 class window.Sampler
 
   # TODO: estimate: let the selection order be free

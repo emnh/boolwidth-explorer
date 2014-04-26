@@ -313,7 +313,7 @@ doUnions = (rm) ->
       H.p("Average rough estimate: #{(result.avgest) / 2}, acc: #{result.acc(result.avgest)}")
       H.p("Random Graph Theoretical Estimate: (#{result.rndest}, acc: #{result.acc(result.rndest)})")]
   H.section(title, content...)
-  title.click()
+  #title.click()
 
   hoods
 
@@ -593,10 +593,12 @@ doDecomposition = (rm) ->
     new Sampler
       mat: rm
   #fname = "graphdata/graphLib_ours/hsugrid/hsu-4x4.dimacs"
-  # fname = "graphdata/graphLib/coloring/queen8_8.dgf"
+  #fname = "graphdata/graphLib/coloring/queen8_8.dgf"
+  #fname = "graphdata/graphLib/coloring/queen5_5.dgf"
+  fname = "graphdata/graphLib/coloring/queen7_7.dgf"
   #fname = "graphdata/graphLib/protein/1aac_graph.dimacs"
   #fname = "graphdata/graphLib/coloring/anna.dgf"
-  fname = "graphdata/graphLib/coloring/jean.dgf"
+  #fname = "graphdata/graphLib/coloring/jean.dgf"
   #fname = "graphdata/graphLib_ours/cycle/c5.dimacs"
   #fname = "graphdata/graphLib/other/sodoku.dgf"
   processGraph =
@@ -694,8 +696,8 @@ doCompute = (inputs) ->
   doSetup(rowct, colct, rm)
   h = doUnions(rm)
   doFastUnions(rm)
-  #doDecomposition(rm)
-  doFastDecomposition(rm)
+  doDecomposition(rm)
+  #doFastDecomposition(rm)
   rm
   #r.collapse({})
 
