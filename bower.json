@@ -10,7 +10,7 @@
     "underscore": "latest",
     "fancytree": "latest",
     "mori": "latest",
-    "raphael": "latest",
+    "raphael": "2.1.2",
     "d3": "latest",
     "nvd3": "latest",
     "jstree": "latest"
