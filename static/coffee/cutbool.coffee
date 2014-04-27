@@ -450,24 +450,19 @@ doFastUnions = (rm) ->
   html_itertree = H.li("TODO: lazyload")
   html_itertree = H.div(H.ul(html_itertree), {class: 'searchtree'})
 
+  f = (h) -> H.ul(H.li(x.sample) for x in h)
   title = H.h1("Backtrack Neighborhoods (t=#{iter_elapsed}ms, count=#{hoodcount})")
   content =
     [
       H.p("Backtrack algorithm elapsed time: #{iter_elapsed} ms")
       H.p("Time per neighborhood: #{iter_elapsed / hoodcount} ms")
-      H.h2("Algorithm Search Tree")
       H.div("Backtrack hood count: #{hoodcount}")
+      getHoodPlaceHolder(hoods, f, "fasthoodsplacement")
+      H.h2("Algorithm Search Tree")
+      html_itertree
     ]
   H.section(title, content...)
   
-  f = (h) -> H.ul(H.li(x) for x in h)
-  title = H.h1("Backtrack Unions Neighborhoods")
-  content = [
-    getHoodPlaceHolder(hoods, f, "fasthoodsplacement"),
-    html_itertree
-    ]
-  H.section(title, content...)
-
   # Run first sampler
   sampler =
     new Sampler
@@ -489,7 +484,7 @@ doFastUnions = (rm) ->
 
   # Output first sampler
   sampleinfo = "t=#{sample_elapsed}ms, N=#{samplect}, count=#{Math.round(estimate)}, acc=#{acc})"
-  title = H.h1("STree Estimate (#{sampleinfo})")
+  title = H.h1("Estimate STree (#{sampleinfo})")
   H.section(title, htree, chart) # H.div("Search Tree"), ol)
   # TODO: make lazy load
   htree.click () ->
@@ -507,10 +502,10 @@ doFastUnions = (rm) ->
   sample_elapsed2 = timer.elapsed
   acc2 = Math.round(estimate2 / hoodcount * 100) / 100
   sampleinfo = "t=#{sample_elapsed2}ms, N=#{samplect}, count=#{Math.round(estimate2)}, acc=#{acc2}"
-  title = H.h1("STree QPos Estimate (#{sampleinfo})")
+  title = H.h1("Estimate QPos (#{sampleinfo})")
   H.section(title, "")
 
-  # Run second sampler
+  # Run third sampler
   sampler3 = new BitSampler(state)
   results3 = timer.timeit(() -> sampler3.getEstimate(samplect))
   estimate3 = results3.estimate
@@ -519,7 +514,20 @@ doFastUnions = (rm) ->
   sample_elapsed3 = timer.elapsed
   acc3 = Math.round(estimate3 / hoodcount * 100) / 100
   sampleinfo = "t=#{sample_elapsed3}ms, N=#{samplect}, count=#{Math.round(estimate3)}, acc=#{acc3}"
-  title = H.h1("STree Bit Estimate (#{sampleinfo})")
+  title = H.h1("Estimate Bitsets (#{sampleinfo})")
+  H.section(title, "")
+
+
+  # Run fourth sampler
+  sampler4 = new ProgressiveSampler(state)
+  results4 = timer.timeit(() -> sampler4.getQPosEstimate(samplect))
+  estimate4 = results4.estimate
+
+  # Output third sampler, TODO: tree?
+  sample_elapsed4 = timer.elapsed
+  acc4 = Math.round(estimate4 / hoodcount * 100) / 100
+  sampleinfo = "t=#{sample_elapsed4}ms, N=#{samplect}, count=#{Math.round(estimate4)}, acc=#{acc4}"
+  title = H.h1("Estimate Progressive (#{sampleinfo})")
   H.section(title, "")
 
   # Output average sampler
@@ -696,7 +704,7 @@ doCompute = (inputs) ->
   doSetup(rowct, colct, rm)
   h = doUnions(rm)
   doFastUnions(rm)
-  doDecomposition(rm)
+  #doDecomposition(rm)
   #doFastDecomposition(rm)
   rm
   #r.collapse({})
@@ -842,7 +850,7 @@ if window?
   inputs = htmlInputs(doCompute)
   doCompute(inputs)
   #console.log("I think uncaught type-errors from nvd3 can be ignored as long as graphs show up fine")
-  #samplerStats()
+  samplerStats()
 else
   # console testing
   #console.log("console testing")

@@ -43,12 +43,6 @@ class window.SearchTree
     proc @root
     solutions
 
-#class window.ProgressiveSampler
-
-#  constructor: (@state) ->
-#    @mat = @state.mat
-
-
 class window.Sampler
 
   # TODO: estimate: let the selection order be free
@@ -58,8 +52,8 @@ class window.Sampler
     @mat = @state.mat
     @hoods = []
 
-  isSubset: (pat) ->
-    (row for row in @mat when pat.every((e, i) -> e == '?' or row[i] <= e))
+  isSubset: (rows, pat) ->
+    (row for row in rows when pat.every((e, i) -> e == '?' or row[i] <= e))
   
   isSubsetSum: (rows, pat) ->
     atLeastOneOneInRows = (e, i) ->
@@ -69,8 +63,8 @@ class window.Sampler
         true
     pat.every(atLeastOneOneInRows)
 
-  isPartialHood: (pat) ->
-    rows = @isSubset(pat)
+  isPartialHood: (rows, pat) ->
+    rows = @isSubset(rows, pat)
     @isSubsetSum(rows, pat)
 
   getRoughEstimate: (exact) ->
@@ -224,8 +218,8 @@ class window.Sampler
         solct++
         st.addLeaf({ sample: state.sample }, parent)
       else
-        zeroct = @isPartialHood(state.sample.concat([0]))
-        onect = @isPartialHood(state.sample.concat([1]))
+        zeroct = @isPartialHood(@mat, state.sample.concat([0]))
+        onect = @isPartialHood(@mat, state.sample.concat([1]))
         switch (onect + zeroct)
           when 0
             solct++
@@ -263,11 +257,11 @@ class window.Sampler
       newposrand = Math.floor(Math.random() * qcount)
       newposition = qpos[newposrand]
       getnext = (val) ->
-        newsample = ((if i == newposition   then val else x) for x,i in sample)
+        newsample = ((if i == newposition then val else x) for x,i in sample)
         newsample
       vals =
         for val in [0, 1]
-          ispartial = @isPartialHood(getnext(val))
+          ispartial = @isPartialHood(@mat, getnext(val))
           ispartial
       prob = switch (vals[0] + vals[1])
         when 0
@@ -352,8 +346,8 @@ class window.Sampler
     while stack.length > 0 and not loopvars.done
       state = stack.pop()
       loopvars.ct++
-      zeroct = @isPartialHood(state.sample.concat([0]))
-      onect = @isPartialHood(state.sample.concat([1]))
+      zeroct = @isPartialHood(@mat, state.sample.concat([0]))
+      onect = @isPartialHood(@mat, state.sample.concat([1]))
       if state.sample.length >= @mat[0].length
         loopvars.done = solution(state)
       else
@@ -383,6 +377,65 @@ class window.Sampler
   getQPosEstimate: (samplect) ->
     initsample = ('?' for x in [1..@mat[0].length])
     samples = (1 / @getQPosSample(initsample, 1) for i in [1..samplect])
+    #@mat = BiGraph.transpose(@mat)
+    #samples2 = (1 / @getQPosSample(initsample, 1) for i in [1..samplect / 2])
+    #samples = samples.concat(samples2)
+    ret =
+      estimate: util.average(samples) # r.estimate for r in results)
+      results: samples
+      samples: samples
+
+class window.ProgressiveSampler extends window.Sampler
+
+  constructor: (@state) ->
+    @mat = @state.mat
+    #@mat = @state.mat2
+    #@diffnodes = @state.diffnodes
+
+  getQPosSample: (rows, sample, prob) ->
+    qpos = (i for x,i in sample when x == '?')
+    qcount = qpos.length
+    if qcount == 0 # @mat[0].length
+      return prob
+    else
+      # select nth question mark as new position
+      newposrand = Math.floor(Math.random() * qcount)
+      newposition = qpos[newposrand]
+      getnext = (val) ->
+        newsample = ((if i == newposition then val else x) for x,i in sample)
+        newsample
+      vals =
+        for val in [0, 1]
+          ispartial = @isPartialHood(@mat, getnext(val))
+          ispartial
+      prob = switch (vals[0] + vals[1])
+        when 0
+          prob
+        when 1
+          nextval = if vals[1] > 0 then 1 else 0
+          prob = @getQPosSample(rows, getnext(nextval), prob)
+        when 2
+          rand = Math.floor(Math.random()*2)
+          prob = @getQPosSample(rows, getnext(rand), prob*0.5)
+      return prob
+
+  getQPosSampleRowInclusive: (rowi) ->
+    # sample for row included
+    initsample = ((if x == 0 then '?' else 1) for x in @mat[rowi])
+    sample = 1 / @getQPosSample(@mat, initsample, 1)
+    # sample for row excluded
+    initsample2 = ('?' for x in @mat[rowi])
+    mat2 = (x for x,i in @mat when i != rowi)
+    sample2 = 1/ @getQPosSample(mat2, initsample2, 1)
+    [sample, sample2]
+    
+  getQPosEstimate: (samplect) ->
+    #initsample = ('?' for x in [1..@mat[0].length])
+    #samples = (1 / @getQPosSample(@mat, initsample, 1) for i in [1..samplect])
+    for j in [1]
+      samples = (@getQPosSampleRowInclusive(i) for i in [0..@mat.length-1])
+      samples = samples.reduce((a, b) -> a.concat(b))
+    console.log(samples)
     ret =
       estimate: util.average(samples) # r.estimate for r in results)
       results: samples
