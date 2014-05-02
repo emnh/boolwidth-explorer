@@ -1,9 +1,9 @@
-class window.BitterSet
+class self.BitterSet
   
   WORD_BITS = 32
   ADDR_BITS = 5
 
-  HAMMING_TABLE = [ 
+  HAMMING_TABLE = [
     0, # 0b0000
     1, # 0b0001
     1, # 0b0010

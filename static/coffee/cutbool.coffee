@@ -37,7 +37,6 @@
 # dependencies
 # mori = mori
 # bigRat = bigRat
-window.H = emhHTML
 
 # row and column count of bipartite graph
 G = 12
@@ -82,39 +81,6 @@ posthoodstat = (data) ->
       0
       #console.log("post success:", data)
     dataType: 'text'
-
-binUnion = (a,b) ->
-  if mori.count(a) != mori.count(b)
-    throw "a.length != b.length"
-  mori.map(((x,y) -> x | y), a, b)
-  #(a[i] | b[i] for _,i in a)
-
-unions = (mat,ulog) ->
-  # udata = H.div("")
-  # ulog = (fn) -> fn().appendTo(udata)
-  if not ulog?
-    # debug off
-    ulog = (fn) -> 0
-  hoods = {}
-  hoodar = []
-  cols = mat.cols
-  init = (0 for x in [1..cols])
-  hoods[init] = {}
-  hoodar.push(init)
-  
-  addHood = (hood, row) ->
-    union = mori.into_array(binUnion(hood, row))
-    union.from = [hood, row]
-    if mori.count(union) != mori.count(hood)
-      throw 'length mismatch: union #{union} hood #{hood}'
-    if hoods[union] == undefined
-      ulog(() -> H.div("" + union))
-      hoods[union] = true
-      hoodar.push(union)
-  addHoods = (row) ->
-    ulog(() -> H.div("Parent: " + row))
-  (addHoods(row, (addHood(hood, row) for hood in hoodar)) for row in mat)
-  hoodar
 
 class VisualGraph
 
@@ -288,34 +254,64 @@ getHoodPlaceHolder = (mhoods, tohtml, id) ->
   hdplink = H.a(hdptext, {href: "#" + id})
   hoodplacement = H.div(hdplink, {id: id}).click(showHoods)
   hoodplacement
+
+deferred_max = 0
+deferredHTML = (htype) ->
+  deferred_max += 1
+  defid = "deferred" + deferred_max
+  ret =
+    jq: htype("", {id: defid, class: "loading"})
+    jqById: () -> $("#" + defid)
+    id: defid
+  ret
   
 doUnions = (rm) ->
-  timer = new Timer()
-  hoods = timer.timeit(() -> unions(rm))
-  title = "Trivial Neighborhood Algorithm "
-  title += "(t=#{timer.elapsed}ms, count=#{mori.count(hoods)})"
-  content = [
-          H.p("unions: #{timer.elapsed} ms")
-          H.p("per hood: #{timer.elapsed / mori.count(hoods)} ms")
-          getHoodPlaceHolder(hoods, H.u2list, "hoodsplacement")]
-  H.section(H.h1(title), content...)
+  #timer = new Timer()
+  #hoods = timer.timeit(() -> unions(rm))
+  tinfo = deferredHTML(H.span)
+  titlefun = (tinfo) ->
+    title = H.span("Trivial Neighborhood Algorithm ")
+    title.append(tinfo.jq)
+    title
+    #title += "(t=#{elapsed.jq.outerHtml()}ms, count=#{hoodcount.jq})"
+  content = deferredHTML(H.div)
+  H.section(H.h1(titlefun(tinfo)), content.jq)
 
-  # Rough estimate based on degrees
-  sampler = new Sampler({mat: rm})
-  timer = new Timer()
-  result = timer.timeit(() -> sampler.getRoughEstimate(mori.count(hoods)))
+  #tinfo.jq.html("(t=#{timer.elapsed}ms, count=#{mori.count(hoods)})")
+  updateinfo = (e) ->
+    data = e.data
+    timer = data.timer
+    hoods = data.hoods
+    tinfo.jq.html "(t=#{timer.elapsed}ms, count=#{mori.count(hoods)})"
+    content.jq.append H.p("unions: #{timer.elapsed} ms")
+    content.jq.append H.p("per hood: #{timer.elapsed / mori.count(hoods)} ms")
+    content.jq.append getHoodPlaceHolder(hoods, H.u2list, "hoodsplacement")
 
-  sampleinfo = "t=#{timer.elapsed}ms, count=#{result.rest}, acc=#{result.acc(result.rest)}"
-  title = H.h1("Rough Estimate: (#{sampleinfo})")
-  content = [
+    # Rough estimate based on degrees, depends on hood count from worker
+    sampler = new Sampler({mat: rm})
+    timer = new Timer()
+    result = timer.timeit(() -> sampler.getRoughEstimate(mori.count(hoods)))
+    rest_title.jq.html "(t=#{timer.elapsed}ms, count=#{result.rest}, acc=#{result.acc(result.rest)})"
+    rest_content.jq.html [
       H.p("Rough estimate (degrees #{result.deg0}): #{result.rest}, acc: #{result.acc(result.rest)}")
       H.p("Rough estimate2 (degrees #{result.deg1}): #{result.rest2}, acc: #{result.acc(result.rest2)}")
       H.p("Average rough estimate: #{(result.avgest) / 2}, acc: #{result.acc(result.avgest)}")
       H.p("Random Graph Theoretical Estimate: (#{result.rndest}, acc: #{result.acc(result.rndest)})")]
-  H.section(title, content...)
-  #title.click()
 
-  hoods
+  rest_title = deferredHTML(H.span)
+  rest_content = deferredHTML(H.div)
+
+  message =
+    cmd: 'unions'
+    mat: rm
+  doWorker(message, updateinfo)
+  #console.log(elapsed.jq.html("test"))
+  #count.html("test")
+
+  title = H.h1("Rough Estimate ")
+  title.append(rest_title.jq)
+  H.section(title, rest_content.jq)
+  #title.click()
 
 doMiniChart = (svgid, data) ->
   
@@ -550,6 +546,7 @@ doFastUnions = (rm) ->
 
   # Save stats to DB
   # TODO: sort matrix by edge degrees
+  return
   posthoodstat
     rows: rm.rows
     cols: rm.cols
@@ -623,21 +620,6 @@ doFastDecomposition = (rm) ->
   #console.log(avg.samples)
   #console.log("est", avg.estimate)
 
-investigateHoodCounts = () ->
-  cts = []
-  for g in [1..16]
-    rowct = colct = g
-    # XXX: error, but method not in use
-    rm = doSetup(rowct, colct, MAT_TYPE)
-    h = doUnions(rm)
-    cts.push(mori.count(h))
-  #console.log(cts)
-  ratios = (Math.floor(cts[i + 1] * 1000 / cts[i]) / 1000 for _, i in cts)
-  #console.log(ratios)
-  return cts
-
-#cts = investigateHoodCounts()
-
 htmlInputs = (doCompute) ->
   inputs = {}
   textin = (label, name, value) ->
@@ -702,7 +684,7 @@ doCompute = (inputs) ->
   bggen = new BiGraphGenerator(options)
   rm = bggen[mat_type]()
   doSetup(rowct, colct, rm)
-  h = doUnions(rm)
+  doUnions(rm)
   doFastUnions(rm)
   #doDecomposition(rm)
   #doFastDecomposition(rm)
@@ -845,13 +827,22 @@ consoletest = () ->
   #console.log("hood count", mori.count(hoods))
   rm
 
-if window?
+doWorker = (message, callback) ->
+  worker = new Worker('coffee/worker.js')
+  worker.addEventListener('message', callback, false)
+  worker.postMessage message
+
+if window? and not worker?
   # browser
+  self.H = emhHTML
   inputs = htmlInputs(doCompute)
   doCompute(inputs)
   #console.log("I think uncaught type-errors from nvd3 can be ignored as long as graphs show up fine")
-  samplerStats()
-else
+  #samplerStats()
+else if worker
+  # imported from worker
+  #console.log("cutbool from worker")
+  self.H = self.emhHTML
   # console testing
   #console.log("console testing")
-  consoletest()
+  #consoletest()

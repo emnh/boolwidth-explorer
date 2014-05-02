@@ -1,4 +1,4 @@
-class window.Timer
+class self.Timer
   timeit: (fn) ->
     before = (new Date()).getTime()
     ret = fn()

@@ -12,7 +12,8 @@ makeH = () ->
   makeTagDef(tag) for tag in tags
   return html
 
-window.emhHTML = makeH()
+emhHTML = makeH()
+window.emhHTML = emhHTML
     
 # TODO: replace H with emhHTML in following
 emhHTML.mat2table = (mat) ->

@@ -16,7 +16,8 @@
     "neo4j": "1.1.x",
     "big-integer": "1.x",
     "big-rational": "0.9.x",
-    "bitterset": "0.0.3"
+    "bitterset": "0.0.3",
+    "spin.js": "2.0.x"
   },
   "engines": {
     "node": "0.10.x",

@@ -1,4 +1,5 @@
-window.util = {}
+util = {}
+window.util = util
 
 # Use Jquery extend instead
 util.mergedicts = (obj1, obj2) ->

@@ -435,7 +435,7 @@ class window.ProgressiveSampler extends window.Sampler
     for j in [1]
       samples = (@getQPosSampleRowInclusive(i) for i in [0..@mat.length-1])
       samples = samples.reduce((a, b) -> a.concat(b))
-    console.log(samples)
+    #console.log(samples)
     ret =
       estimate: util.average(samples) # r.estimate for r in results)
       results: samples
