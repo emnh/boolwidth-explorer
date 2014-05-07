@@ -633,14 +633,34 @@ doDecomposition = (rm) ->
       fname: fname
   $.get(fname, "", processGraph)
 
-doFastDecomposition = (rm) ->
-  samplect = SAMPLE_COUNT
-  sampler =
-    new BitSampler
-      mat: rm
-  avg = sampler.getEstimate(20)
-  #console.log(avg.samples)
-  #console.log("est", avg.estimate)
+doAllGraphs = () ->
+  fnamelist = "/graphfiles.txt"
+
+  makeProcessGraph = (opts) ->
+    processGraph = (data) ->
+      graph = new Graph()
+      graph.parseDimacs(data)
+      console.log("graph filename", opts.fname)
+      console.log("nodes length", Object.keys(graph.nodes).length)
+      console.log("edges length", graph.edges.length)
+
+  processList = (data) ->
+    lines = data.split('\n')
+    lines = (line for line in lines when line != '')
+    #for fname in lines[0..10]
+    for fname in lines
+      do (fname) ->
+        processGraph =
+          makeProcessGraph
+            fname: fname
+        $.get(fname, "", processGraph)
+
+  $.ajax
+    url: fnamelist
+    data: ""
+    success: processList
+    dataType: "text"
+
 
 htmlInputs = (doCompute) ->
   inputs = {}
@@ -709,7 +729,7 @@ doCompute = (inputs) ->
   doUnions(rm)
   doFastUnions(rm)
   #doDecomposition(rm)
-  #doFastDecomposition(rm)
+  #doAllGraphs(rm)
   rm
   #r.collapse({})
 
@@ -853,6 +873,8 @@ doWorker = (message, callback) ->
   worker = new Worker('coffee/worker.js')
   worker.addEventListener('message', callback, false)
   worker.postMessage message
+
+self.hello = () -> 42
 
 if window? and not worker?
   # browser
