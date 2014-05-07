@@ -6,7 +6,8 @@
     "url": "git://github.com/emnh/boolwidth-explorer.git"
   },
   "dependencies": {
-    "coffee-script": "1.6.x",
+    "coffee-script": "1.7.x",
+    "iced-coffee-script": "1.7.x",
     "coffee-script-redux": "2.x",
     "express": "3.x",
     "express-generator": "3.x",

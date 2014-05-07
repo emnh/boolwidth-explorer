@@ -25,6 +25,7 @@ self.unions = (mat,ulog) ->
     if hoods[union] == undefined
       ulog(() -> H.div("" + union))
       hoods[union] = true
+      #`yield return union`
       hoodar.push(union)
   addHoods = (row) ->
     ulog(() -> H.div("Parent: " + row))

@@ -859,6 +859,7 @@ if window? and not worker?
   self.H = emhHTML
   inputs = htmlInputs(doCompute)
   doCompute(inputs)
+  #(console.log(i) for i in testfun())
   #console.log("I think uncaught type-errors from nvd3 can be ignored as long as graphs show up fine")
   #samplerStats()
 else if worker
