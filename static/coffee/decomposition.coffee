@@ -33,13 +33,15 @@ class window.Decomposition
     right_revmap = {}
     (right_revmap[graphi] = righti for graphi, righti in right)
     #console.log("rr", right_revmap)
-    mat = ([0] for j in right for i in left)
+    mat = (0 for j in right for i in left)
     for ri,i in left
       for n in graph.nodes[ri].neighbors
         j = right_revmap[n]
         mat[i][j] = 1
     #console.log(mat)
     #console.log(row.join(",")) for row in mat
+    mat.rows = left.length
+    mat.cols = right.length
     mat
 
   computeExact: (tree, graph) ->

@@ -12,6 +12,8 @@ self.unions = (mat,ulog) ->
     ulog = (fn) -> 0
   hoods = {}
   hoodar = []
+  if not mat.cols?
+    throw "mat.cols undefined"
   cols = mat.cols
   init = (0 for x in [1..cols])
   hoods[init] = {}

@@ -59,19 +59,6 @@ SAMPLE_COUNT = 20
 toType = (obj) ->
   ({}).toString.call(obj).match(/\s([a-zA-Z]+)/)[1].toLowerCase()
 
-testpost = (msg) ->
-  success = null
-  data =
-    #JSON.stringify
-    name: "emh"
-    value: "emh@emh.com"
-  $.ajax
-    type: "POST"
-    url: '/message'
-    data: data
-    success: (data) -> console.log("post success:", data)
-    dataType: 'text'
-
 posthoodstat = (data) ->
   $.ajax
     type: "POST"
@@ -633,35 +620,6 @@ doDecomposition = (rm) ->
       fname: fname
   $.get(fname, "", processGraph)
 
-doAllGraphs = () ->
-  fnamelist = "/graphfiles.txt"
-
-  makeProcessGraph = (opts) ->
-    processGraph = (data) ->
-      graph = new Graph()
-      graph.parseDimacs(data)
-      console.log("graph filename", opts.fname)
-      console.log("nodes length", Object.keys(graph.nodes).length)
-      console.log("edges length", graph.edges.length)
-
-  processList = (data) ->
-    lines = data.split('\n')
-    lines = (line for line in lines when line != '')
-    #for fname in lines[0..10]
-    for fname in lines
-      do (fname) ->
-        processGraph =
-          makeProcessGraph
-            fname: fname
-        $.get(fname, "", processGraph)
-
-  $.ajax
-    url: fnamelist
-    data: ""
-    success: processList
-    dataType: "text"
-
-
 htmlInputs = (doCompute) ->
   inputs = {}
   textin = (label, name, value) ->
@@ -729,7 +687,7 @@ doCompute = (inputs) ->
   doUnions(rm)
   doFastUnions(rm)
   #doDecomposition(rm)
-  #doAllGraphs(rm)
+  #RandomCutGraph.doAllGraphs(rm)
   rm
   #r.collapse({})
 
