@@ -21,6 +21,9 @@ A project to explore boolean width using a graphical user interface.
     </ul>
 </div>
 
+- figure out how to use node/coffeescript conveniently with modules from command line as well as on page
+ - phantomjs loads page bloat + is async so not so cool for processing files
+
 - visualize cutbool algorithm
   - Make debugger to step over Data, not over Code. Data centric view and control at least.
   - JS Parser in JS: htps://github.com/ariya/esprima
@@ -35,10 +38,9 @@ A project to explore boolean width using a graphical user interface.
     - http://mbraak.github.io/jqTree/
   - lazy tree with async computation of cutbool
 
-- upload graph text files to separate (for speed) github repository
- - enumerate using github API
-   - https://api.github.com/repos/emnh/boolwidth/git/refs for sha
-   - https://api.github.com/repos/emnh/boolwidth/git/trees/f4778315107f4b69ec9866233dedfbe97604ea68 for tree and so on
+- enumerate graph text files using github API
+  - https://api.github.com/repos/emnh/boolwidth/git/refs for sha
+  - https://api.github.com/repos/emnh/boolwidth/git/trees/f4778315107f4b69ec9866233dedfbe97604ea68 for tree and so on
 
 - store graphs and output in neo4j
   - load/import standard graph from github in tree view
