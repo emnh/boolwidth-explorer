@@ -23,10 +23,10 @@
   },
   "engines": {
     "node": "0.10.x",
-    "npm": "1.2.x"
+    "npm": "1.4.x"
   },
   "scripts": {
-    "start": "node node_modules/coffee-script/bin/coffee server.coffee",
-    "postinstall": "node node_modules/coffee-script/bin/cake build"
+    "start": "nodejs node_modules/coffee-script/bin/coffee server.coffee",
+    "postinstall": "nodejs node_modules/coffee-script/bin/cake build"
   }
 }
