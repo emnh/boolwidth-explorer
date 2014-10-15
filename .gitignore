@@ -7,6 +7,7 @@
 /static/coffee/*.js
 /static/coffee/*.map
 /static/cb.html
+/static/console.html
 /static/coffee.out
 /trace
 /bwe-express/lib

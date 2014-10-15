@@ -1,0 +1,42 @@
+doctype html
+
+- prefix = "jscache";
+
+html
+    head
+        link(href='cutbool.css', rel='stylesheet', type='text/css')
+        link(rel='stylesheet', href='jscache/nv.d3.css')
+        link(rel='stylesheet', href='jscache/style.min.css')
+
+        script(src='jscache/bitterset.js')
+        script(src='jscache/jquery.js')
+        script(src='jscache/spin.js')
+        script(src='jscache/mori.js')
+        script(src='jscache/d3.js')
+        script(src='jscache/nv.d3.js')
+        script(src='jscache/jstree.js')
+        script(src='jscache/BigInt_BigRat.min.js')
+        script(src='jscache/parseurl.js')
+        script(src='jscache/coffee-script.js')
+
+        meta(charset='utf-8')
+        title CutBool Experiments
+    body
+        div
+          #console_output
+          //label(for="console_input")
+          label(for="console_input") Console:
+          input#console_input
+        script(src='coffee/timer.js')
+        script(src='coffee/util.js')
+        script(src='coffee/html.js')
+        script(src='coffee/graphselect.js')
+        script(src='coffee/graph.js')
+        script(src='coffee/bigraph.js')
+        script(src='coffee/sampler.js')
+        script(src='coffee/decompositionfast.js')
+        script(src='coffee/decomposition.js')
+        script(src='coffee/unions.js')
+        script(src='coffee/randomcut.js')
+        script(src='coffee/console.js')
+        //script(src='coffee/cutbool.js')
