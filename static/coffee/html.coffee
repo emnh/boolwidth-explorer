@@ -1,3 +1,6 @@
+# TODO: deprecate this file and use
+# https://github.com/emnh/test/blob/master/static/coffee/html.coffee instead
+
 makeH = () ->
   html = {}
   tags =
