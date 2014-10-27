@@ -827,7 +827,7 @@ consoletest = () ->
   rm
 
 doWorker = (message, callback) ->
-  worker = new Worker('coffee/worker.js')
+  worker = new Worker('coffee/workers/worker.js')
   worker.addEventListener('message', callback, false)
   worker.postMessage message
 

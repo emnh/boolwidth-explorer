@@ -3,20 +3,10 @@
 # since self == window in main browser and also global object for worker
 self.window = {}
 self.worker = true
-importScripts('../jscache/bitterset.js')
-importScripts('../jscache/mori.js')
-importScripts('../jscache/BigInt_BigRat.min.js')
-importScripts('timer.js')
-importScripts('util.js')
-importScripts('html.js')
-importScripts('graphselect.js')
-importScripts('graph.js')
-importScripts('bigraph.js')
-importScripts('sampler.js')
-importScripts('decompositionfast.js')
-importScripts('decomposition.js')
-importScripts('unions.js')
-importScripts('cutbool.js')
+importScripts('../../jscache/bitterset.js')
+importScripts('../../jscache/mori.js')
+importScripts('../../jscache/BigInt_BigRat.min.js')
+importScripts('../bundle.js')
 dowork = (e) ->
   cmd = e.data.cmd
   switch cmd
