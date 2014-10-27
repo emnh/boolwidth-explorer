@@ -8,16 +8,5 @@
 "jscache/jstree.js",
 "jscache/BigInt_BigRat.min.js",
 "jscache/parseurl.js",
-"coffee/timer.js",
-"coffee/util.js",
-"coffee/html.js",
-"coffee/graphselect.js",
-"coffee/graph.js",
-"coffee/bigraph.js",
-"coffee/sampler.js",
-"coffee/decompositionfast.js",
-"coffee/decomposition.js",
-"coffee/unions.js",
-"coffee/randomcut.js",
-"coffee/cutbool.js"
+"coffee/bundle.js"
 ]
