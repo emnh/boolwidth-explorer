@@ -1,7 +1,6 @@
-$ = jQuery
-H = emhHTML
-
-$(document).ready ->
+self.indexMain = () ->
+  $ = jQuery
+  H = emhHTML
   
   # tabs
   updateGraphText = (graph) ->
