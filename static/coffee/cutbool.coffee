@@ -427,11 +427,10 @@ class HTMLTree
       nodemap[node.state.id] = node
     nodemap
 
-doFastUnions = (rm) ->
+doFastUnions = (rm, samplect) ->
   timer = new Timer()
   state =
       mat: rm
-  samplect = inputs.getsamplecount()
   timer = new Timer()
   sampler = new Sampler(state)
   result = timer.timeit(() -> sampler.iterate())
@@ -685,7 +684,7 @@ doCompute = (inputs) ->
   rm = bggen[mat_type]()
   doSetup(rowct, colct, rm)
   doUnions(rm)
-  doFastUnions(rm)
+  doFastUnions(rm, samplect)
   #doDecomposition(rm)
   #RandomCutGraph.doAllGraphs(rm)
   rm
