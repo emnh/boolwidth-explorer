@@ -832,20 +832,19 @@ doWorker = (message, callback) ->
   worker.addEventListener('message', callback, false)
   worker.postMessage message
 
-self.hello = () -> 42
-
-if window? and not worker?
-  # browser
+self.cutboolMain = () ->
   self.H = emhHTML
   inputs = htmlInputs(doCompute)
   doCompute(inputs)
   #(console.log(i) for i in testfun())
   #console.log("I think uncaught type-errors from nvd3 can be ignored as long as graphs show up fine")
   #samplerStats()
+
+self.hello = () -> 42
+
+if window? and not worker?
+  # browser
 else if worker
   # imported from worker
   #console.log("cutbool from worker")
   self.H = self.emhHTML
-  # console testing
-  #console.log("console testing")
-  #consoletest()
