@@ -12,5 +12,5 @@ console_main = () ->
       #  result = "undefined"
       dresult = $("<div/>")
       dresult.append(result)
-      $("#console_output").append(result)
+      $("#console_output").append(dresult)
 $(console_main)
