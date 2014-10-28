@@ -6,6 +6,8 @@
 /bwe-express/bower_components
 /static/coffee/*.js
 /static/coffee/*.map
+/static/coffee/workers/*.js
+/static/coffee/workers/*.map
 /static/cb.html
 /static/console.html
 /static/coffee.out
