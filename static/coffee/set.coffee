@@ -11,14 +11,15 @@ window.set =
     ret = []
     b.forEach (n) ->
       bmap[n] = true
-      return
 
     a.forEach (n) ->
-      ret.push n  unless bmap[n]
-      return
+      ret.push n unless bmap[n]
 
     ret.sort()
     ret
+  
+  difference: (a, b) ->
+    @diff(a, b)
 
   union: (a, b) ->
     bmap = {}
@@ -26,11 +27,9 @@ window.set =
     b.forEach (n) ->
       ret.push n
       bmap[n] = true
-      return
 
     a.forEach (n) ->
       ret.push n  unless bmap[n]
-      return
 
     ret.sort()
     ret
@@ -40,11 +39,15 @@ window.set =
     ret = []
     b.forEach (n) ->
       bmap[n] = true
-      return
 
     a.forEach (n) ->
       ret.push n  if bmap[n]
-      return
 
     ret.sort()
     ret
+    
+class window.set.Set
+  constructor: (ar) ->
+    @amap = {}
+    ar.forEach (n) ->
+      @amap[n] = true

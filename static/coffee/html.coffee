@@ -24,6 +24,10 @@ emhHTML.mat2table = (mat) ->
     td.data('index', [i, j])
     td
   rowf = (row, i) -> emhHTML.tr([emhHTML.th(i + 1)].concat(tdf(x, i, j) for x, j in row))
+  if not mat.cols?
+    throw "not valid matrix, missing cols"
+  if not mat.rows?
+    throw "not valid matrix, missing rows"
   rows = (rowf(row, i) for row, i in mat)
   headers = emhHTML.tr([emhHTML.th()].concat((emhHTML.th(i) for i in [1..mat.cols])))
   rows = [headers].concat(rows)
