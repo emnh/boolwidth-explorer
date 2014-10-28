@@ -1,0 +1,34 @@
+div
+  #menu
+    ul.tabs
+      li
+        a(href='#graphpane') Graph
+      li
+        a(href='#clustervis') Decomposition Dendrogram
+      li
+        a(href='#jstreevis') Decomposition Tree
+      li
+        a(href='#graphtext') Graph Text
+      li
+        a(href='#treetext') Decomposition Text
+      li
+        a(href='#debug') Debug
+  #split
+    .pane
+      #graphpane.chart
+        select#interaction_mode
+          option(value='edit') Edit
+          option(value='move') Move
+        #graphvis
+      #clustervis.chart
+      #jstreevis.chart
+      #graphtext.chart
+        textarea(disabled='')
+      #treetext.chart
+        textarea(disabled='')
+      #debug.chart
+    #treevis.chart
+include ./inc/jslib.jade
+script(src='coffee/bundle.js')
+script(type='text/javascript').
+  $(indexMain)
