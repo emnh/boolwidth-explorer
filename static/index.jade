@@ -2,7 +2,9 @@ doctype html
 
 html
   head
+    title Boolean-width explorer
     include ./inc/jslib.jade
+    link(rel='stylesheet', href='index.css')
 body
   div
     #menu
@@ -34,6 +36,5 @@ body
           textarea(disabled='')
         #debug.chart
       #treevis.chart
-    script(src='coffee/bundle.js')
     script(type='text/javascript').
         $(indexMain)

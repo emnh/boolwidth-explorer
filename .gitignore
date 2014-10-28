@@ -4,13 +4,10 @@
 /bower_components
 /bwe-express/node_modules
 /bwe-express/bower_components
-/static/coffee/*.js
-/static/coffee/*.map
-/static/coffee/workers/*.js
-/static/coffee/workers/*.map
-/static/cb.html
-/static/console.html
 /static/coffee.out
+/static/console.html
+/static/cutbool.html
+/static/index.html
 /trace
 /bwe-express/lib
 /.c9

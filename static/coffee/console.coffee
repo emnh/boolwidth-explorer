@@ -1,4 +1,4 @@
-consoleMain = () ->
+window.consoleMain = () ->
   $("#console_input").keypress (e) ->
     if (e.keyCode == 13)
       statement = $("#console_input").val()
