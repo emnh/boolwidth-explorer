@@ -9,16 +9,15 @@ html
         link(rel='stylesheet', href='jscache/style.min.css')
 
         include ./inc/jslib.jade
-
+        
         meta(charset='utf-8')
         title CutBool Experiments
     body
-        div
-          #console_output
-          //label(for="console_input")
-          label(for="console_input") Console:
-          input#console_input
+        #inputs
+        #compute_results(data-collapse='accordion persist')
+            h1 Results
+            div Empty
         script(src='coffee/bundle.js')
         script(type='text/javascript').
-            $(consoleMain)
-        //script(src='coffee/cutbool.js')
+            $(cutboolMain)
+            

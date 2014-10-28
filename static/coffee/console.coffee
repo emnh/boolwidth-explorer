@@ -1,4 +1,4 @@
-console_main = () ->
+consoleMain = () ->
   $("#console_input").keypress (e) ->
     if (e.keyCode == 13)
       statement = $("#console_input").val()
@@ -13,4 +13,3 @@ console_main = () ->
       dresult = $("<div/>")
       dresult.append(result)
       $("#console_output").append(dresult)
-$(console_main)
