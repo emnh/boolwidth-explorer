@@ -5,9 +5,7 @@
 /bwe-express/node_modules
 /bwe-express/bower_components
 /static/coffee.out
-/static/console.html
-/static/cutbool.html
-/static/index.html
+/static/*.html
 /trace
 /bwe-express/lib
 /.c9

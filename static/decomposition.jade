@@ -1,0 +1,22 @@
+doctype html
+
+- prefix = "jscache";
+
+html
+    head
+        link(href='cutbool.css', rel='stylesheet', type='text/css')
+        link(rel='stylesheet', href='jscache/nv.d3.css')
+        link(rel='stylesheet', href='jscache/style.min.css')
+
+        include ./inc/jslib.jade
+        
+        meta(charset='utf-8')
+        title CutBool Experiments
+    body
+        script(type='text/coffeescript').
+            vd = new VisualDecomposition()
+            after = (graph) ->
+              #vd.showDecomposition([$('window').width(),$('window').height()], graph)
+              vd.showDecomposition([1600, 800], graph)
+            parseJSON = vd.makeParseJSON(after)
+            $.get("/decomposition", "", parseJSON)
