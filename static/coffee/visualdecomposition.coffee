@@ -105,7 +105,7 @@ class window.VisualDecomposition
       proc = (node, depth=0) ->
         thatid = maxid
         graph.nodes.push(thatid)
-        cblog = Math.log(node.cutbool) / Math.log(2.0)
+        cblog = Math.log(node.cutBool) / Math.log(2.0)
         cblog = Math.round(cblog * 100) / 100
         label = cblog + ":" + depth
         graph.labels.push(label)
