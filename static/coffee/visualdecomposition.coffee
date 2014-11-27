@@ -1,19 +1,63 @@
 class window.VisualDecomposition
 
-  showDecomposition: (parent) ->
+  showGraph: (parent) ->
     parent.append(@container)
+    @parent = parent
     # events must be attached after adding to DOM
+    @addHandlers()
+    @zoomOn()
+
+  addHandlers: () ->
+    t = @
+    @toggleZoom.click () ->
+      if t.zoom
+        t.toggleZoom.prop('value', "Zoom On")
+        t.zoomOff()
+      else
+        t.toggleZoom.prop('value', "Zoom Off")
+        t.zoomOn()
+
+  zoomOff: () ->
+    @svg.on "mousedown.zoom", null
+    @svg.on "mousemove.zoom", null
+    @svg.on "dblclick.zoom", null
+    @svg.on "touchstart.zoom", null
+    @svg.on "wheel.zoom", null
+    @svg.on "mousewheel.zoom", null
+    @svg.on "MozMousePixelScroll.zoom", null
+    @zoom = false
+    #@svg.remove()
+    #@container.add(@svg)
+    #@addHandlers()
+
+  zoomOn: () ->
     svgGroup = @svgGroup
     rescale = () ->
-      console.log("rescale", d3.event.scale, d3.event.translate)
+      #console.log("rescale", d3.event.scale, d3.event.translate)
       trans = d3.event.translate
       scale = d3.event.scale
       svgGroup.attr "transform", "translate(" + trans + ")" + " scale(" + scale + ")"
     zoomListener = d3.behavior.zoom().on("zoom", rescale)
     zoomListener(@svg)
+    @zoom = true
 
-  createDecomposition: (size, graph) ->
+  selectNodes: (nodes) ->
+    selector = (d) ->
+      if (d in nodes)
+        "red"
+      else
+        "lightblue"
+    allNodes =
+      @svg
+        .selectAll(".node circle")
+        .data(@graph.nodes)
+        .attr "fill", selector
+    #console.log(allNodes)
+
+  createVisualGraph: (size, graph) ->
     
+    @graph = graph
+
     [width, height] = size
     color = d3.scale.category20()
     
@@ -25,12 +69,19 @@ class window.VisualDecomposition
         .size([width, height])
     container = emhHTML.div("") # { style: "visibility: hidden;" })
     @container = container
+    
+    toggleZoom = emhHTML.input '',
+      type: "button"
+      value: "Zoom Off"
+    @toggleZoom = toggleZoom
+
+    @container.append(toggleZoom)
 
     svg =
       d3.selectAll(container.toArray())
         .append("svg")
         .attr("width", () -> width)
-        .attr("height", () -> height)    
+        .attr("height", () -> height)
         .attr("id", _.uniqueId("d3svg"))
     @svg = svg
 
@@ -41,12 +92,12 @@ class window.VisualDecomposition
       graph.labels = graph.nodes
 
     newNode = (d) ->
-      node = 
+      node =
         index: d
         name: graph.labels[d]
       return node
     newlink = (d, nodes) ->
-      link = 
+      link =
         source: nodes[d[0]]
         target: nodes[d[1]]
       return link
@@ -71,7 +122,7 @@ class window.VisualDecomposition
       .style("stroke-width", () -> 1.0)
       .style("stroke", "black")
     
-    nodeg = 
+    nodeg =
       svgGroup
         .selectAll(".node")
         .data(nodes)
@@ -80,7 +131,7 @@ class window.VisualDecomposition
         .attr("class", "node")
         .call(force.drag)
         
-    radius = 1
+    radius = 10
 
     nodeg
       .append("circle")
@@ -91,8 +142,8 @@ class window.VisualDecomposition
       .text((d) -> d.name)
       .attr("x", 0)
       .attr("y", radius / 2.0)
-      .attr("fill", "black")
-      .attr("stroke", "red")
+      #.attr("fill", "black")
+      .attr("stroke", "black")
       .attr("text-anchor", "middle")
 
     force.on "tick", () ->
