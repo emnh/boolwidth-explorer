@@ -1,6 +1,18 @@
 class window.VisualDecomposition
 
-  showDecomposition: (size, graph) ->
+  showDecomposition: (parent) ->
+    parent.append(@container)
+    # events must be attached after adding to DOM
+    svgGroup = @svgGroup
+    rescale = () ->
+      console.log("rescale", d3.event.scale, d3.event.translate)
+      trans = d3.event.translate
+      scale = d3.event.scale
+      svgGroup.attr "transform", "translate(" + trans + ")" + " scale(" + scale + ")"
+    zoomListener = d3.behavior.zoom().on("zoom", rescale)
+    zoomListener(@svg)
+
+  createDecomposition: (size, graph) ->
     
     [width, height] = size
     color = d3.scale.category20()
@@ -11,15 +23,20 @@ class window.VisualDecomposition
         .charge(-120)
         .linkDistance(30)
         .size([width, height])
-    tmpdiv = emhHTML.div("") # { style: "visibility: hidden;" })
-    tmpdiv.prependTo('body')
-    svg = 
-      d3.selectAll(tmpdiv.toArray())
+    container = emhHTML.div("") # { style: "visibility: hidden;" })
+    @container = container
+
+    svg =
+      d3.selectAll(container.toArray())
         .append("svg")
         .attr("width", () -> width)
         .attr("height", () -> height)    
         .attr("id", _.uniqueId("d3svg"))
+    @svg = svg
 
+    svgGroup = svg.append("g")
+    @svgGroup = svgGroup
+    
     if not graph.labels?
       graph.labels = graph.nodes
 
@@ -45,7 +62,7 @@ class window.VisualDecomposition
     links = force.links()
       
     link =
-      svg
+      svgGroup
       .selectAll(".link")
       .data(links)
       .enter()
@@ -55,7 +72,7 @@ class window.VisualDecomposition
       .style("stroke", "black")
     
     nodeg = 
-      svg
+      svgGroup
         .selectAll(".node")
         .data(nodes)
         .enter()
@@ -116,7 +133,7 @@ class window.VisualDecomposition
         return thatid
       proc(json)
 
-      console.log(graph)
+      #console.log(graph)
 
       callback(graph)
     return f
