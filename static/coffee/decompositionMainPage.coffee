@@ -49,13 +49,22 @@ class window.DecompositionMainPage
       ret
     json = proc(json)
 
-    container = emhHTML.div()
-    main.append(container)
-    container.css
+    getOrderingButton = emhHTML.input '',
+      type: 'button'
+      value: 'Get X Ordering'
+    main.append(getOrderingButton)
+    removeLongestLinkButton = emhHTML.input '',
+      type: 'button'
+      value: 'Remove Longest Link'
+    main.append(removeLongestLinkButton)
+
+    jstreeContainer = emhHTML.div()
+    main.append(jstreeContainer)
+    jstreeContainer.css
       position: "absolute"
       left: "800px"
       top: "0px"
-    jstree = container.jstree
+    jstree = jstreeContainer.jstree
       core:
         data:
           [json]
@@ -71,7 +80,17 @@ class window.DecompositionMainPage
         if order <= currentOrder
           nodes.push(graph.nodes[i])
       vd.selectNodes(nodes)
-    #setInterval animateOrder, 10
+    setInterval animateOrder, 100
+
+    removeLongestLinkButton.click () ->
+      vd.removeLongestLink()
+    
+    getOrderingButton.click () ->
+      [nodeIndices, nodeNames] = vd.getNodesByX()
+      indices = ("" + x for x in nodeIndices)
+      names = ("" + x for x in nodeNames)
+      main.prepend(emhHTML.div("indices: " + indices))
+      main.prepend(emhHTML.div("names: " + names))
 
     jstree.on "select_node.jstree", (node, selected, event) ->
       console.log(node, selected, event)
